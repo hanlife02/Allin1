@@ -43,6 +43,7 @@ export function RemindersCard() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newContent, setNewContent] = useState("")
   const [newDueDate, setNewDueDate] = useState("")
+  const addReminderDialogId = "daily-reminders-add-dialog"
 
   const filtered = reminders.filter((r) => {
     if (filter === "pending") return !r.completed
@@ -90,12 +91,17 @@ export function RemindersCard() {
           <CardTitle className="text-sm font-medium">{t.daily.reminders.title}</CardTitle>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                aria-controls={addReminderDialogId}
+              >
                 <Plus className="h-4 w-4" />
                 <span className="sr-only">{t.daily.reminders.addReminder}</span>
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent id={addReminderDialogId}>
               <DialogHeader>
                 <DialogTitle>{t.daily.reminders.addReminder}</DialogTitle>
               </DialogHeader>

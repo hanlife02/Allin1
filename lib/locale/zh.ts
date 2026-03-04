@@ -70,6 +70,19 @@ export const zh = {
       overdue: "已逾期",
       days: "天",
     },
+    deadlines: {
+      title: "DDL 截止",
+      addDeadline: "添加 DDL",
+      noDeadlines: "暂无 DDL",
+      courseName: "课程名称",
+      assignmentName: "作业名称",
+      dueDate: "截止日期",
+      overdue: "已逾期",
+      dueToday: "今天截止",
+      urgent: "紧急",
+      daysOverdue: "天逾期",
+      daysLeft: "天剩余",
+    },
   },
   tools: {
     title: "工具",
@@ -198,4 +211,12 @@ export const zh = {
   },
 } as const
 
-export type LocaleDict = typeof zh
+type LocaleShape<T> = T extends string
+  ? string
+  : T extends readonly (infer U)[]
+    ? readonly LocaleShape<U>[]
+    : T extends object
+      ? { [K in keyof T]: LocaleShape<T[K]> }
+      : T
+
+export type LocaleDict = LocaleShape<typeof zh>

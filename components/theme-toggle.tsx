@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { Moon, Sun, Monitor } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useLocale } from "@/lib/i18n"
@@ -11,6 +12,11 @@ type Theme = typeof THEMES[number]
 export function ThemeToggle() {
   const { setTheme, theme } = useTheme()
   const { t } = useLocale()
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   function cycle() {
     const current = (theme as Theme) ?? "system"
@@ -19,8 +25,9 @@ export function ThemeToggle() {
     setTheme(next)
   }
 
-  const icon =
-    theme === "dark" ? (
+  const icon = !mounted ? (
+    <Monitor className="h-4 w-4" />
+  ) : theme === "dark" ? (
       <Moon className="h-4 w-4" />
     ) : theme === "light" ? (
       <Sun className="h-4 w-4" />

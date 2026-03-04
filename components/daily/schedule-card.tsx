@@ -1,6 +1,6 @@
-"use client"
+﻿"use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { MapPin, Plus, Trash2, Settings2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,7 @@ import {
 import { useLocale } from "@/lib/i18n"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Types 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 type WeekType = "all" | "odd" | "even"
 
@@ -34,11 +34,11 @@ interface Course {
   id: string
   name: string
   classroom: string
-  /** slot index 1–12 */
+  /** slot index 1鈥?2 */
   slot: number
   /** how many consecutive slots this course occupies */
   span: number
-  /** 1=Mon … 7=Sun */
+  /** 1=Mon 鈥?7=Sun */
   weekday: number
   weekType: WeekType
 }
@@ -50,46 +50,51 @@ interface SemesterConfig {
   totalWeeks: number
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+interface VisibleCourse extends Course {
+  span: number
+  endSlot: number
+}
+
+// 鈹€鈹€鈹€ Constants 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const SLOTS = [
-  { label: "1",  time: "8:00–8:50" },
-  { label: "2",  time: "9:00–9:50" },
-  { label: "3",  time: "10:10–11:00" },
-  { label: "4",  time: "11:10–12:00" },
-  { label: "5",  time: "13:00–13:50" },
-  { label: "6",  time: "14:00–14:50" },
-  { label: "7",  time: "15:10–16:00" },
-  { label: "8",  time: "16:10–17:00" },
-  { label: "9",  time: "17:10–18:00" },
-  { label: "10", time: "18:40–19:30" },
-  { label: "11", time: "19:40–20:30" },
-  { label: "12", time: "20:40–21:30" },
+  { label: "1", time: "8:00-8:50" },
+  { label: "2", time: "9:00-9:50" },
+  { label: "3", time: "10:10-11:00" },
+  { label: "4", time: "11:10-12:00" },
+  { label: "5", time: "13:00-13:50" },
+  { label: "6", time: "14:00-14:50" },
+  { label: "7", time: "15:10-16:00" },
+  { label: "8", time: "16:10-17:00" },
+  { label: "9", time: "17:10-18:00" },
+  { label: "10", time: "18:40-19:30" },
+  { label: "11", time: "19:40-20:30" },
+  { label: "12", time: "20:40-21:30" },
 ]
 
 // Start / end minutes for each slot (for "current slot" highlighting)
 const SLOT_RANGES = [
-  [480, 530],   // 8:00–8:50
-  [540, 590],   // 9:00–9:50
-  [610, 660],   // 10:10–11:00
-  [670, 720],   // 11:10–12:00
-  [780, 830],   // 13:00–13:50
-  [840, 890],   // 14:00–14:50
-  [910, 960],   // 15:10–16:00
-  [970, 1020],  // 16:10–17:00
-  [1030, 1080], // 17:10–18:00
-  [1120, 1170], // 18:40–19:30
-  [1180, 1230], // 19:40–20:30
-  [1240, 1290], // 20:40–21:30
+  [480, 530],   // 8:00鈥?:50
+  [540, 590],   // 9:00鈥?:50
+  [610, 660],   // 10:10鈥?1:00
+  [670, 720],   // 11:10鈥?2:00
+  [780, 830],   // 13:00鈥?3:50
+  [840, 890],   // 14:00鈥?4:50
+  [910, 960],   // 15:10鈥?6:00
+  [970, 1020],  // 16:10鈥?7:00
+  [1030, 1080], // 17:10鈥?8:00
+  [1120, 1170], // 18:40鈥?9:30
+  [1180, 1230], // 19:40鈥?0:30
+  [1240, 1290], // 20:40鈥?1:30
 ]
 
 const defaultCourses: Course[] = [
-  { id: "1", name: "高等数学",  classroom: "A301", slot: 1, span: 2, weekday: 1, weekType: "all" },
-  { id: "2", name: "线性代数",  classroom: "B205", slot: 3, span: 2, weekday: 1, weekType: "odd" },
-  { id: "3", name: "大学物理",  classroom: "C102", slot: 5, span: 2, weekday: 2, weekType: "all" },
-  { id: "4", name: "英语听说",  classroom: "D401", slot: 1, span: 2, weekday: 3, weekType: "even" },
-  { id: "5", name: "数据结构",  classroom: "A205", slot: 3, span: 2, weekday: 4, weekType: "all" },
-  { id: "6", name: "操作系统",  classroom: "B301", slot: 5, span: 2, weekday: 5, weekType: "odd" },
+  { id: "1", name: "Calculus", classroom: "A301", slot: 1, span: 2, weekday: 1, weekType: "all" },
+  { id: "2", name: "Linear Algebra", classroom: "B205", slot: 3, span: 2, weekday: 1, weekType: "odd" },
+  { id: "3", name: "Physics", classroom: "C102", slot: 5, span: 2, weekday: 2, weekType: "all" },
+  { id: "4", name: "English", classroom: "D401", slot: 1, span: 2, weekday: 3, weekType: "even" },
+  { id: "5", name: "Data Structures", classroom: "A205", slot: 3, span: 2, weekday: 4, weekType: "all" },
+  { id: "6", name: "Operating Systems", classroom: "B301", slot: 5, span: 2, weekday: 5, weekType: "odd" },
 ]
 
 const defaultSemester: SemesterConfig = {
@@ -97,7 +102,7 @@ const defaultSemester: SemesterConfig = {
   totalWeeks: 18,
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// 鈹€鈹€鈹€ Helpers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 /**
  * Given a semester start date (Monday) and today's date,
@@ -122,25 +127,17 @@ function isCurrentSlot(slotIndex: number): boolean {
   return cur >= start && cur <= end
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+function getCurrentSlotIndex(): number | null {
+  const now = new Date()
+  const cur = now.getHours() * 60 + now.getMinutes()
+  const idx = SLOT_RANGES.findIndex(([start, end]) => cur >= start && cur <= end)
+  return idx === -1 ? null : idx + 1
+}
+
+// 鈹€鈹€鈹€ Component 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 export function ScheduleCard() {
   const { t } = useLocale()
-
-  // ── Responsive square cell size ─────────────────────────────────────────────
-  // 8 equal columns: 1 time-label + 7 day cols. cellSize = containerWidth / 8.
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [cellSize, setCellSize] = useState(64)
-
-  useEffect(() => {
-    const el = containerRef.current
-    if (!el) return
-    const update = () => setCellSize(Math.floor(el.clientWidth / 8))
-    update()
-    const ro = new ResizeObserver(update)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
 
   const [courses, setCourses] = useLocalStorage<Course[]>("allin1_schedule_v4", defaultCourses)
   const [semester, setSemester] = useLocalStorage<SemesterConfig>(
@@ -162,22 +159,30 @@ export function ScheduleCard() {
   // Semester config dialog
   const [cfgOpen, setCfgOpen] = useState(false)
   const [cfgDraft, setCfgDraft] = useState<SemesterConfig>(semester)
+  const semesterConfigDialogId = "daily-schedule-semester-config-dialog"
+  const addCourseDialogId = "daily-schedule-add-course-dialog"
 
-  // ── Computed week info ──────────────────────────────────────────────────────
+  // 鈹€鈹€ Computed week info 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const { weekNo, isOdd } = getSemesterWeek(semester.startDate)
   const currentWeekType: "odd" | "even" = isOdd ? "odd" : "even"
   const inSemester = weekNo >= 1 && weekNo <= semester.totalWeeks
 
   const weekLabel = inSemester
-    ? `${t.daily.schedule.weekLabel} ${weekNo} · ${isOdd ? t.daily.schedule.oddWeek : t.daily.schedule.evenWeek}`
+    ? `${t.daily.schedule.weekLabel} ${weekNo} 周 ${isOdd ? t.daily.schedule.oddWeek : t.daily.schedule.evenWeek}`
     : weekNo === 0
     ? t.daily.schedule.beforeSemester
     : t.daily.schedule.afterSemester
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // 鈹€鈹€ Handlers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   function handleAddCourse() {
     if (!newCourse.name.trim()) return
-    setCourses((prev) => [...prev, { ...newCourse, id: Date.now().toString() }])
+    const startSlot = Math.min(Math.max(newCourse.slot, 1), SLOTS.length)
+    const maxSpan = SLOTS.length - startSlot + 1
+    const clampedSpan = Math.min(Math.max(newCourse.span, 1), maxSpan)
+    setCourses((prev) => [
+      ...prev,
+      { ...newCourse, slot: startSlot, span: clampedSpan, id: Date.now().toString() },
+    ])
     setNewCourse({ name: "", classroom: "", slot: 1, span: 2, weekday: 1, weekType: "all" })
     setAddOpen(false)
   }
@@ -191,17 +196,40 @@ export function ScheduleCard() {
     setCfgOpen(false)
   }
 
-  function coursesForDaySlot(weekday: number, slotIndex: number): Course[] {
-    return courses.filter((c) => {
-      if (c.weekday !== weekday) return false
-      if (c.slot !== slotIndex) return false
-      // Show only courses that apply to the current week type
-      return c.weekType === "all" || c.weekType === currentWeekType
-    })
-  }
+  const visibleCourses = useMemo<VisibleCourse[]>(() => {
+    return courses
+      .filter((c) => c.weekType === "all" || c.weekType === currentWeekType)
+      .map((c) => {
+        const startSlot = Math.min(Math.max(c.slot, 1), SLOTS.length)
+        const maxSpan = SLOTS.length - startSlot + 1
+        const clampedSpan = Math.min(Math.max(c.span, 1), maxSpan)
+        return {
+          ...c,
+          slot: startSlot,
+          span: clampedSpan,
+          endSlot: startSlot + clampedSpan - 1,
+        }
+      })
+      .sort((a, b) => a.slot - b.slot)
+  }, [courses, currentWeekType])
+
+  const coursesByDayAndStartSlot = useMemo(() => {
+    const map = new Map<string, VisibleCourse[]>()
+    for (const course of visibleCourses) {
+      const key = `${course.weekday}-${course.slot}`
+      const group = map.get(key)
+      if (group) {
+        group.push(course)
+      } else {
+        map.set(key, [course])
+      }
+    }
+    return map
+  }, [visibleCourses])
 
   const today = new Date().getDay()
   const todayWeekday = today === 0 ? 7 : today
+  const currentSlotIndex = getCurrentSlotIndex()
 
   const weekTypeBadgeLabel: Record<WeekType, string | null> = {
     all: null,
@@ -209,7 +237,27 @@ export function ScheduleCard() {
     even: t.daily.schedule.evenWeek,
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const courseBlocks = useMemo(() => {
+    return Array.from(coursesByDayAndStartSlot.entries())
+      .map(([key, startCourses]) => {
+        const [weekday, slot] = key.split("-").map(Number)
+        const maxSpan = SLOTS.length - slot + 1
+        const span = Math.min(Math.max(...startCourses.map((course) => course.span)), maxSpan)
+        return { weekday, slot, span, courses: startCourses }
+      })
+      .sort((a, b) => a.slot - b.slot || a.weekday - b.weekday)
+  }, [coursesByDayAndStartSlot])
+
+  const fontScale = {
+    day: "clamp(0.72rem, 0.35rem + 0.6vw, 1rem)",
+    slotLabel: "clamp(0.68rem, 0.3rem + 0.55vw, 0.95rem)",
+    slotTime: "clamp(0.58rem, 0.25rem + 0.45vw, 0.8rem)",
+    courseTitle: "clamp(0.7rem, 0.35rem + 0.55vw, 1rem)",
+    courseMeta: "clamp(0.62rem, 0.3rem + 0.45vw, 0.85rem)",
+    badge: "clamp(0.55rem, 0.25rem + 0.35vw, 0.75rem)",
+  } as const
+
+  // 鈹€鈹€ Render 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -223,12 +271,17 @@ export function ScheduleCard() {
             {/* Semester config */}
             <Dialog open={cfgOpen} onOpenChange={(o) => { setCfgOpen(o); if (o) setCfgDraft(semester) }}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-controls={semesterConfigDialogId}
+                >
                   <Settings2 className="h-4 w-4" />
                   <span className="sr-only">{t.daily.schedule.semesterConfig}</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent id={semesterConfigDialogId}>
                 <DialogHeader>
                   <DialogTitle>{t.daily.schedule.semesterConfig}</DialogTitle>
                 </DialogHeader>
@@ -268,12 +321,17 @@ export function ScheduleCard() {
             {/* Add course */}
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
               <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-controls={addCourseDialogId}
+                >
                   <Plus className="h-4 w-4" />
                   <span className="sr-only">{t.daily.schedule.addCourse}</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent id={addCourseDialogId}>
                 <DialogHeader>
                   <DialogTitle>{t.daily.schedule.addCourse}</DialogTitle>
                 </DialogHeader>
@@ -305,7 +363,7 @@ export function ScheduleCard() {
                         <SelectContent>
                           {SLOTS.map((s, i) => (
                             <SelectItem key={i + 1} value={String(i + 1)}>
-                              {t.daily.schedule.slotLabel} {i + 1}（{s.time}）
+                              {t.daily.schedule.slotLabel} {i + 1} ({s.time})
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -382,121 +440,154 @@ export function ScheduleCard() {
       </CardHeader>
 
       <CardContent className="p-0">
-        {/*
-          Responsive square-cell grid.
-          cellSize = floor(containerWidth / 8) — 1 time col + 7 day cols.
-          Every cell is exactly cellSize × cellSize px.
-          The header row is half a cell tall.
-        */}
-        <div
-          ref={containerRef}
-          className="border-t overflow-x-auto"
-          style={{
-            display: "grid",
-            gridTemplateColumns: `repeat(8, ${cellSize}px)`,
-            gridTemplateRows: `${Math.floor(cellSize / 2)}px repeat(12, ${cellSize}px)`,
-          }}
-        >
-          {/* ── Header row (row 1) ── */}
+        <div className="border-t">
+          <div
+            className="grid w-full"
+            style={{
+              aspectRatio: "8 / 8.5",
+              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 7fr)",
+              gridTemplateRows: "0.4fr minmax(0, 12fr)",
+            }}
+          >
+            <div />
 
-          {/* top-left corner cell */}
-          <div className="border-r border-b" />
-
-          {/* day name cells */}
-          {t.daily.schedule.weekdays.map((dayLabel, i) => {
-            const weekday = i + 1
-            const isToday = weekday === todayWeekday
-            return (
+            <div className="relative grid grid-cols-7">
               <div
-                key={weekday}
-                className={`border-r border-b last:border-r-0 flex items-center justify-center text-xs font-medium ${
-                  isToday ? "bg-muted/50 text-foreground" : "text-muted-foreground"
-                }`}
-              >
-                <span className="hidden sm:inline">{dayLabel}</span>
-                <span className="sm:hidden">{t.daily.schedule.weekdaysShort[i]}</span>
-              </div>
-            )
-          })}
-
-          {/* ── Slot rows (rows 2 – 13) ── */}
-          {SLOTS.map((slot, slotIdx) => {
-            const slotIndex = slotIdx + 1
-            const isCurrent = isCurrentSlot(slotIndex)
-            const [startTime, endTime] = slot.time.split("–")
-
-            return (
-              <>
-                {/* Time-label cell */}
-                <div
-                  key={`time-${slotIndex}`}
-                  className={`border-r border-b flex flex-col items-center justify-center gap-0.5 ${
-                    isCurrent ? "bg-muted/50" : ""
-                  }`}
-                  style={{ height: cellSize, width: cellSize }}
-                >
-                  <span
-                    className={`text-xs font-bold leading-none ${
-                      isCurrent ? "text-foreground" : "text-muted-foreground"
+                className="pointer-events-none absolute inset-y-0 rounded-lg bg-muted/10"
+                style={{
+                  left: `${((todayWeekday - 1) / 7) * 100}%`,
+                  width: `${100 / 7}%`,
+                }}
+              />
+              {t.daily.schedule.weekdays.map((dayLabel, i) => {
+                const weekday = i + 1
+                const isToday = weekday === todayWeekday
+                return (
+                  <div
+                    key={`weekday-${weekday}`}
+                    className={`z-10 flex items-center justify-center font-medium ${
+                      isToday ? "text-foreground" : "text-muted-foreground"
                     }`}
+                    style={{ fontSize: fontScale.day }}
                   >
-                    {slot.label}
-                  </span>
-                  <span className="text-[10px] leading-tight text-muted-foreground">
-                    {startTime}
-                  </span>
-                  <span className="text-[10px] leading-tight text-muted-foreground">
-                    {endTime}
-                  </span>
-                </div>
+                    <span className="hidden sm:inline">{dayLabel}</span>
+                    <span className="sm:hidden">{t.daily.schedule.weekdaysShort[i]}</span>
+                  </div>
+                )
+              })}
+            </div>
 
-                {/* 7 day cells */}
-                {Array.from({ length: 7 }, (_, i) => {
-                  const weekday = i + 1
-                  const isToday = weekday === todayWeekday
-                  const cellCourses = coursesForDaySlot(weekday, slotIndex)
+            <div
+              className="grid"
+              style={{ gridTemplateRows: "repeat(12, minmax(0, 1fr))" }}
+            >
+              {SLOTS.map((slot, slotIdx) => {
+                const slotIndex = slotIdx + 1
+                const isCurrent = isCurrentSlot(slotIndex)
+                const timeParts = slot.time.match(/\d{1,2}:\d{2}/g) ?? []
+                const startTime = timeParts[0] ?? ""
+                const endTime = timeParts[1] ?? ""
 
-                  return (
-                    <div
-                      key={`cell-${slotIndex}-${weekday}`}
-                      className={`border-r border-b last:border-r-0 flex items-center justify-center overflow-hidden ${
-                        isToday ? "bg-muted/25" : ""
+                return (
+                  <div
+                    key={`slot-row-${slotIndex}`}
+                    className="z-10 flex flex-col items-center justify-center gap-0 px-0.5"
+                  >
+                    <span
+                      className={`font-bold leading-none ${
+                        isCurrent ? "text-foreground" : "text-muted-foreground"
                       }`}
-                      style={{ height: cellSize, width: cellSize }}
+                      style={{ fontSize: fontScale.slotLabel }}
                     >
-                      {cellCourses.map((course) => (
+                      {slot.label}
+                    </span>
+                    <span
+                      className="leading-tight text-muted-foreground whitespace-nowrap"
+                      style={{ fontSize: fontScale.slotTime }}
+                    >
+                      {startTime}
+                    </span>
+                    <span
+                      className="leading-tight text-muted-foreground whitespace-nowrap"
+                      style={{ fontSize: fontScale.slotTime }}
+                    >
+                      {endTime}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div
+              className="relative grid"
+              style={{
+                gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                gridTemplateRows: "repeat(12, minmax(0, 1fr))",
+              }}
+            >
+              <div
+                className="pointer-events-none rounded-lg bg-muted/10"
+                style={{
+                  gridColumn: todayWeekday,
+                  gridRow: "1 / span 12",
+                }}
+              />
+
+              {courseBlocks.map((block) => {
+                const isCurrentInBlock =
+                  block.weekday === todayWeekday &&
+                  currentSlotIndex !== null &&
+                  currentSlotIndex >= block.slot &&
+                  currentSlotIndex <= block.slot + block.span - 1
+
+                return (
+                  <div
+                    key={`course-block-${block.weekday}-${block.slot}`}
+                    className="z-20 p-0.5"
+                    style={{
+                      gridColumn: block.weekday,
+                      gridRow: `${block.slot} / span ${block.span}`,
+                    }}
+                  >
+                    <div
+                      className={`h-full w-full rounded-xl border px-1 py-0.5 flex flex-col justify-center gap-0.5 ${
+                        isCurrentInBlock
+                          ? "border-foreground/40 bg-foreground/5"
+                          : "border-border bg-background"
+                      }`}
+                    >
+                      {block.courses.map((course) => (
                         <div
                           key={course.id}
-                          className={`group relative rounded px-1 py-1 border flex flex-col items-center justify-center gap-0.5 transition-colors text-center overflow-hidden ${
-                            isCurrent && isToday
-                              ? "border-foreground/40 bg-foreground/5"
-                              : "border-border bg-background"
-                          }`}
-                          style={{
-                            height: cellSize * course.span - 4,
-                            width: cellSize - 4,
-                          }}
+                           className="group relative h-full flex flex-col items-center justify-center gap-0 text-center overflow-hidden"
                         >
                           <button
                             className="absolute right-0.5 top-0.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded opacity-50 hover:opacity-100"
                             onClick={() => deleteCourse(course.id)}
                             aria-label="delete"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                           </button>
-                          <p className="text-xs font-semibold leading-tight line-clamp-2 w-full">
+                          <p
+                            className="font-semibold leading-tight line-clamp-2 w-full"
+                            style={{ fontSize: fontScale.courseTitle }}
+                          >
                             {course.name}
                           </p>
                           {course.classroom && (
-                            <p className="text-[11px] text-muted-foreground leading-tight truncate flex items-center justify-center gap-0.5 w-full">
-                              <MapPin className="h-2.5 w-2.5 shrink-0" />
+                            <p
+                              className="text-muted-foreground leading-tight truncate flex items-center justify-center gap-0.5 w-full"
+                              style={{ fontSize: fontScale.courseMeta }}
+                            >
+                              <MapPin className="h-2.5 w-2.5 md:h-3 md:w-3 shrink-0" />
                               {course.classroom}
                             </p>
                           )}
                           {course.weekType !== "all" && (
                             <Badge
                               variant="outline"
-                              className="h-4 px-1 text-[10px] border-muted-foreground/30 leading-none"
+                              className="h-auto px-1 py-0.5 border-muted-foreground/30 leading-none"
+                              style={{ fontSize: fontScale.badge }}
                             >
                               {weekTypeBadgeLabel[course.weekType]}
                             </Badge>
@@ -504,11 +595,11 @@ export function ScheduleCard() {
                         </div>
                       ))}
                     </div>
-                  )
-                })}
-              </>
-            )
-          })}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

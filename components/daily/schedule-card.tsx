@@ -1,7 +1,7 @@
 ﻿"use client"
 
-import { useState, useMemo } from "react"
-import { MapPin, Plus, Trash2, Settings2 } from "lucide-react"
+import { useState, useMemo, useEffect, useRef } from "react"
+import { MapPin, Plus, Trash2, Settings2, ChevronLeft, ChevronRight } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -109,7 +109,8 @@ const defaultSemester: SemesterConfig = {
  * returns { weekNo, isOdd } where weekNo is 1-based (0 = before semester).
  */
 function getSemesterWeek(startDateStr: string): { weekNo: number; isOdd: boolean } {
-  const start = new Date(startDateStr)
+  const [year, month, day] = startDateStr.split("-").map(Number)
+  const start = new Date(year, (month || 1) - 1, day || 1)
   // Normalise to midnight
   start.setHours(0, 0, 0, 0)
   const now = new Date()
@@ -118,6 +119,36 @@ function getSemesterWeek(startDateStr: string): { weekNo: number; isOdd: boolean
   if (diffDays < 0) return { weekNo: 0, isOdd: true }
   const weekNo = Math.floor(diffDays / 7) + 1
   return { weekNo, isOdd: weekNo % 2 === 1 }
+}
+
+function getWeekDates(startDateStr: string, weekNo: number): Date[] {
+  const [year, month, day] = startDateStr.split("-").map(Number)
+  const weekStart = new Date(year, (month || 1) - 1, day || 1)
+  weekStart.setHours(0, 0, 0, 0)
+  weekStart.setDate(weekStart.getDate() + (weekNo - 1) * 7)
+
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart)
+    d.setDate(weekStart.getDate() + i)
+    return d
+  })
+}
+
+function formatMonthDay(date: Date): string {
+  return `${date.getMonth() + 1}.${date.getDate()}`
+}
+
+function normalizeTotalWeeks(totalWeeks: number): number {
+  if (!Number.isFinite(totalWeeks)) return 1
+  return Math.min(Math.max(Math.round(totalWeeks), 1), 30)
+}
+
+function clampWeekNo(weekNo: number, totalWeeks: number): number {
+  return Math.min(Math.max(Math.round(weekNo), 1), totalWeeks)
+}
+
+function formatWeekNoLabel(prefix: string, weekNo: number): string {
+  return prefix === "第" ? `${prefix}${weekNo}周` : `${prefix} ${weekNo}`
 }
 
 function isCurrentSlot(slotIndex: number): boolean {
@@ -144,6 +175,10 @@ export function ScheduleCard() {
     "allin1_semester",
     defaultSemester,
   )
+  const totalWeeks = normalizeTotalWeeks(semester.totalWeeks)
+  const { weekNo: currentWeekNoRaw } = getSemesterWeek(semester.startDate)
+  const currentWeekNo = clampWeekNo(currentWeekNoRaw, totalWeeks)
+  const [viewWeekNo, setViewWeekNo] = useState<number>(currentWeekNo)
 
   // Add course dialog
   const [addOpen, setAddOpen] = useState(false)
@@ -155,23 +190,38 @@ export function ScheduleCard() {
     weekday: 1,
     weekType: "all",
   })
+  const [draggingCourseId, setDraggingCourseId] = useState<string | null>(null)
+  const [dragOverCell, setDragOverCell] = useState<{ weekday: number; slot: number; span: number } | null>(null)
+  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
+  const scheduleGridRef = useRef<HTMLDivElement | null>(null)
 
   // Semester config dialog
   const [cfgOpen, setCfgOpen] = useState(false)
   const [cfgDraft, setCfgDraft] = useState<SemesterConfig>(semester)
   const semesterConfigDialogId = "daily-schedule-semester-config-dialog"
   const addCourseDialogId = "daily-schedule-add-course-dialog"
+  const weekOptions = useMemo(
+    () => Array.from({ length: totalWeeks }, (_, index) => index + 1),
+    [totalWeeks],
+  )
+
+  useEffect(() => {
+    setViewWeekNo((prev) => clampWeekNo(prev, totalWeeks))
+  }, [totalWeeks])
 
   // 鈹€鈹€ Computed week info 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
-  const { weekNo, isOdd } = getSemesterWeek(semester.startDate)
-  const currentWeekType: "odd" | "even" = isOdd ? "odd" : "even"
-  const inSemester = weekNo >= 1 && weekNo <= semester.totalWeeks
-
-  const weekLabel = inSemester
-    ? `${t.daily.schedule.weekLabel} ${weekNo} 周 ${isOdd ? t.daily.schedule.oddWeek : t.daily.schedule.evenWeek}`
-    : weekNo === 0
-    ? t.daily.schedule.beforeSemester
-    : t.daily.schedule.afterSemester
+  const viewedWeekType: "odd" | "even" = viewWeekNo % 2 === 1 ? "odd" : "even"
+  const isViewingCurrentWeek = currentWeekNoRaw >= 1 && currentWeekNoRaw <= totalWeeks && viewWeekNo === currentWeekNoRaw
+  const currentWeekStatus =
+    currentWeekNoRaw < 1
+      ? t.daily.schedule.beforeSemester
+      : currentWeekNoRaw > totalWeeks
+      ? t.daily.schedule.afterSemester
+      : null
+  const weekLabelBase = `${formatWeekNoLabel(t.daily.schedule.weekLabel, viewWeekNo)} ${
+    viewedWeekType === "odd" ? t.daily.schedule.oddWeek : t.daily.schedule.evenWeek
+  }`
+  const weekLabel = currentWeekStatus ? `${weekLabelBase} · ${currentWeekStatus}` : weekLabelBase
 
   // 鈹€鈹€ Handlers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   function handleAddCourse() {
@@ -192,13 +242,119 @@ export function ScheduleCard() {
   }
 
   function saveSemesterConfig() {
-    setSemester(cfgDraft)
+    const totalWeeksDraft = normalizeTotalWeeks(cfgDraft.totalWeeks)
+    const nextConfig: SemesterConfig = {
+      ...cfgDraft,
+      totalWeeks: totalWeeksDraft,
+    }
+    setSemester(nextConfig)
+    setCfgDraft(nextConfig)
+    setViewWeekNo((prev) => clampWeekNo(prev, totalWeeksDraft))
     setCfgOpen(false)
+  }
+
+  function goToPreviousWeek() {
+    setViewWeekNo((prev) => Math.max(1, prev - 1))
+  }
+
+  function goToNextWeek() {
+    setViewWeekNo((prev) => Math.min(totalWeeks, prev + 1))
+  }
+
+  function moveCourse(courseId: string, nextWeekday: number, nextSlot: number) {
+    setCourses((prev) =>
+      prev.map((course) => {
+        if (course.id !== courseId) return course
+        const span = Math.min(Math.max(course.span, 1), SLOTS.length)
+        const maxStartSlot = SLOTS.length - span + 1
+        return {
+          ...course,
+          weekday: Math.min(Math.max(nextWeekday, 1), 7),
+          slot: Math.min(Math.max(nextSlot, 1), maxStartSlot),
+        }
+      }),
+    )
+  }
+
+  function getCourseSpan(courseId: string): number {
+    const course = courses.find((item) => item.id === courseId)
+    if (!course) return 1
+    return Math.min(Math.max(course.span, 1), SLOTS.length)
+  }
+
+  function getCellFromClientPoint(clientX: number, clientY: number): { weekday: number; slot: number } | null {
+    const gridEl = scheduleGridRef.current
+    if (!gridEl) return null
+
+    const rect = gridEl.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) return null
+    if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+      return null
+    }
+
+    const x = clientX - rect.left
+    const y = clientY - rect.top
+    const weekday = Math.min(Math.max(Math.floor((x / rect.width) * 7) + 1, 1), 7)
+    const slot = Math.min(Math.max(Math.floor((y / rect.height) * SLOTS.length) + 1, 1), SLOTS.length)
+    return { weekday, slot }
+  }
+
+  function handleGridDragOver(e: React.DragEvent<HTMLDivElement>) {
+    if (!draggingCourseId) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+    const cell = getCellFromClientPoint(e.clientX, e.clientY)
+    if (!cell) return
+
+    const span = getCourseSpan(draggingCourseId)
+    const maxStartSlot = SLOTS.length - span + 1
+    const slot = Math.min(Math.max(cell.slot, 1), maxStartSlot)
+    setDragOverCell({ weekday: cell.weekday, slot, span })
+  }
+
+  function handleGridDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    if (!draggingCourseId) return
+
+    const cell = getCellFromClientPoint(e.clientX, e.clientY)
+    if (cell) {
+      const span = getCourseSpan(draggingCourseId)
+      const maxStartSlot = SLOTS.length - span + 1
+      const slot = Math.min(Math.max(cell.slot, 1), maxStartSlot)
+      moveCourse(draggingCourseId, cell.weekday, slot)
+    }
+
+    setDragOverCell(null)
+    setDraggingCourseId(null)
+  }
+
+  function handleCourseDragStart(e: React.DragEvent<HTMLDivElement>, courseId: string) {
+    e.dataTransfer.effectAllowed = "move"
+    e.dataTransfer.setData("text/plain", courseId)
+    setDraggingCourseId(courseId)
+    setSelectedCourseId(null)
+  }
+
+  function handleCourseDragEnd() {
+    setDragOverCell(null)
+    setDraggingCourseId(null)
+  }
+
+  function handleCourseClick(courseId: string) {
+    setSelectedCourseId((prev) => (prev === courseId ? null : courseId))
+  }
+
+  function handleGridClick(e: React.MouseEvent<HTMLDivElement>) {
+    if (!selectedCourseId) return
+    const cell = getCellFromClientPoint(e.clientX, e.clientY)
+    if (!cell) return
+    moveCourse(selectedCourseId, cell.weekday, cell.slot)
+    setSelectedCourseId(null)
   }
 
   const visibleCourses = useMemo<VisibleCourse[]>(() => {
     return courses
-      .filter((c) => c.weekType === "all" || c.weekType === currentWeekType)
+      .filter((c) => c.weekType === "all" || c.weekType === viewedWeekType)
       .map((c) => {
         const startSlot = Math.min(Math.max(c.slot, 1), SLOTS.length)
         const maxSpan = SLOTS.length - startSlot + 1
@@ -211,7 +367,7 @@ export function ScheduleCard() {
         }
       })
       .sort((a, b) => a.slot - b.slot)
-  }, [courses, currentWeekType])
+  }, [courses, viewedWeekType])
 
   const coursesByDayAndStartSlot = useMemo(() => {
     const map = new Map<string, VisibleCourse[]>()
@@ -229,13 +385,17 @@ export function ScheduleCard() {
 
   const today = new Date().getDay()
   const todayWeekday = today === 0 ? 7 : today
-  const currentSlotIndex = getCurrentSlotIndex()
+  const currentSlotIndex = isViewingCurrentWeek ? getCurrentSlotIndex() : null
 
   const weekTypeBadgeLabel: Record<WeekType, string | null> = {
     all: null,
     odd: t.daily.schedule.oddWeek,
     even: t.daily.schedule.evenWeek,
   }
+  const weekDateLabels = useMemo(
+    () => getWeekDates(semester.startDate, viewWeekNo).map(formatMonthDay),
+    [semester.startDate, viewWeekNo],
+  )
 
   const courseBlocks = useMemo(() => {
     return Array.from(coursesByDayAndStartSlot.entries())
@@ -249,12 +409,12 @@ export function ScheduleCard() {
   }, [coursesByDayAndStartSlot])
 
   const fontScale = {
-    day: "clamp(0.72rem, 0.35rem + 0.6vw, 1rem)",
-    slotLabel: "clamp(0.68rem, 0.3rem + 0.55vw, 0.95rem)",
-    slotTime: "clamp(0.58rem, 0.25rem + 0.45vw, 0.8rem)",
-    courseTitle: "clamp(0.7rem, 0.35rem + 0.55vw, 1rem)",
-    courseMeta: "clamp(0.62rem, 0.3rem + 0.45vw, 0.85rem)",
-    badge: "clamp(0.55rem, 0.25rem + 0.35vw, 0.75rem)",
+    day: "clamp(0.82rem, 0.4rem + 0.65vw, 1.08rem)",
+    slotLabel: "clamp(0.8rem, 0.36rem + 0.62vw, 1.12rem)",
+    slotTime: "clamp(0.68rem, 0.32rem + 0.52vw, 0.92rem)",
+    courseTitle: "clamp(0.76rem, 0.38rem + 0.58vw, 1.06rem)",
+    courseMeta: "clamp(0.7rem, 0.34rem + 0.5vw, 0.94rem)",
+    badge: "clamp(0.64rem, 0.3rem + 0.42vw, 0.82rem)",
   } as const
 
   // 鈹€鈹€ Render 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
@@ -264,10 +424,43 @@ export function ScheduleCard() {
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <CardTitle className="text-sm font-medium">{t.daily.schedule.title}</CardTitle>
-            <span className="text-xs text-muted-foreground">{weekLabel}</span>
+            <span className="text-sm text-muted-foreground">{weekLabel}</span>
           </div>
 
           <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label={t.common.previous}
+              onClick={goToPreviousWeek}
+              disabled={viewWeekNo <= 1}
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Select value={String(viewWeekNo)} onValueChange={(value) => setViewWeekNo(Number(value))}>
+              <SelectTrigger className="h-8 w-[108px] px-2 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {weekOptions.map((week) => (
+                  <SelectItem key={week} value={String(week)}>
+                    {formatWeekNoLabel(t.daily.schedule.weekLabel, week)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              aria-label={t.common.next}
+              onClick={goToNextWeek}
+              disabled={viewWeekNo >= totalWeeks}
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+
             {/* Semester config */}
             <Dialog open={cfgOpen} onOpenChange={(o) => { setCfgOpen(o); if (o) setCfgDraft(semester) }}>
               <DialogTrigger asChild>
@@ -446,30 +639,33 @@ export function ScheduleCard() {
             style={{
               aspectRatio: "8 / 8.5",
               gridTemplateColumns: "minmax(0, 1fr) minmax(0, 7fr)",
-              gridTemplateRows: "0.4fr minmax(0, 12fr)",
+              gridTemplateRows: "0.62fr minmax(0, 12fr)",
             }}
           >
             <div />
 
             <div className="relative grid grid-cols-7">
-              <div
-                className="pointer-events-none absolute inset-y-0 rounded-lg bg-muted/10"
-                style={{
-                  left: `${((todayWeekday - 1) / 7) * 100}%`,
-                  width: `${100 / 7}%`,
-                }}
-              />
+              {isViewingCurrentWeek && (
+                <div
+                  className="pointer-events-none absolute inset-y-0 rounded-lg bg-muted/10"
+                  style={{
+                    left: `${((todayWeekday - 1) / 7) * 100}%`,
+                    width: `${100 / 7}%`,
+                  }}
+                />
+              )}
               {t.daily.schedule.weekdays.map((dayLabel, i) => {
                 const weekday = i + 1
-                const isToday = weekday === todayWeekday
+                const isToday = isViewingCurrentWeek && weekday === todayWeekday
                 return (
                   <div
                     key={`weekday-${weekday}`}
-                    className={`z-10 flex items-center justify-center font-medium ${
+                    className={`z-10 flex flex-col items-center justify-center leading-tight ${
                       isToday ? "text-foreground" : "text-muted-foreground"
                     }`}
                     style={{ fontSize: fontScale.day }}
                   >
+                    <span className="text-[0.82em] font-medium opacity-95">{weekDateLabels[i]}</span>
                     <span className="hidden sm:inline">{dayLabel}</span>
                     <span className="sm:hidden">{t.daily.schedule.weekdaysShort[i]}</span>
                   </div>
@@ -483,7 +679,7 @@ export function ScheduleCard() {
             >
               {SLOTS.map((slot, slotIdx) => {
                 const slotIndex = slotIdx + 1
-                const isCurrent = isCurrentSlot(slotIndex)
+                const isCurrent = isViewingCurrentWeek && isCurrentSlot(slotIndex)
                 const timeParts = slot.time.match(/\d{1,2}:\d{2}/g) ?? []
                 const startTime = timeParts[0] ?? ""
                 const endTime = timeParts[1] ?? ""
@@ -519,19 +715,35 @@ export function ScheduleCard() {
             </div>
 
             <div
+              ref={scheduleGridRef}
               className="relative grid"
               style={{
                 gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
                 gridTemplateRows: "repeat(12, minmax(0, 1fr))",
               }}
+              onDragOver={handleGridDragOver}
+              onDrop={handleGridDrop}
+              onClick={handleGridClick}
             >
-              <div
-                className="pointer-events-none rounded-lg bg-muted/10"
-                style={{
-                  gridColumn: todayWeekday,
-                  gridRow: "1 / span 12",
-                }}
-              />
+              {dragOverCell && (
+                <div
+                  className="pointer-events-none z-30 rounded-md bg-primary/15 ring-1 ring-primary/35"
+                  style={{
+                    gridColumn: dragOverCell.weekday,
+                    gridRow: `${dragOverCell.slot} / span ${dragOverCell.span}`,
+                  }}
+                />
+              )}
+
+              {isViewingCurrentWeek && (
+                <div
+                  className="pointer-events-none rounded-lg bg-muted/10"
+                  style={{
+                    gridColumn: todayWeekday,
+                    gridRow: "1 / span 12",
+                  }}
+                />
+              )}
 
               {courseBlocks.map((block) => {
                 const isCurrentInBlock =
@@ -559,17 +771,32 @@ export function ScheduleCard() {
                       {block.courses.map((course) => (
                         <div
                           key={course.id}
-                           className="group relative h-full flex flex-col items-center justify-center gap-0 text-center overflow-hidden"
+                            className={`group relative h-full flex flex-col items-center justify-center gap-0 text-center overflow-hidden ${
+                            draggingCourseId === course.id ? "opacity-60" : ""
+                          }`}
+                          style={{ cursor: draggingCourseId === course.id ? "grabbing" : "grab" }}
+                          draggable
+                          onDragStart={(e) => handleCourseDragStart(e, course.id)}
+                          onDragEnd={handleCourseDragEnd}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleCourseClick(course.id)
+                          }}
                         >
                           <button
                             className="absolute right-0.5 top-0.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded opacity-50 hover:opacity-100"
-                            onClick={() => deleteCourse(course.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              deleteCourse(course.id)
+                            }}
                             aria-label="delete"
                           >
                             <Trash2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                           </button>
                           <p
-                            className="font-semibold leading-tight line-clamp-2 w-full"
+                            className={`font-semibold leading-tight line-clamp-2 w-full ${
+                              selectedCourseId === course.id ? "underline decoration-dotted underline-offset-2" : ""
+                            }`}
                             style={{ fontSize: fontScale.courseTitle }}
                           >
                             {course.name}

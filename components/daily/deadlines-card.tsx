@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import { useState } from "react"
 import { CalendarClock, Plus, Trash2 } from "lucide-react"
@@ -31,6 +31,15 @@ function getDaysLeft(dueDate: string) {
   const due = new Date(dueDate)
   due.setHours(0, 0, 0, 0)
   return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function formatDueDate(dueDate: string) {
+  const parsed = new Date(dueDate)
+  if (Number.isNaN(parsed.getTime())) return dueDate
+  const y = parsed.getFullYear()
+  const m = String(parsed.getMonth() + 1).padStart(2, "0")
+  const d = String(parsed.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
 }
 
 export function DeadlinesCard() {
@@ -152,9 +161,13 @@ export function DeadlinesCard() {
                       <span className="text-sm font-medium truncate">{deadline.assignmentName}</span>
                       {getStatusBadge(daysLeft)}
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
+                    <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <span>{deadline.courseName}</span>
-                      <span>·</span>
+                      <span className="opacity-60">|</span>
+                      <span>
+                        {formatDueDate(deadline.dueDate)}
+                      </span>
+                      <span className="opacity-60">|</span>
                       <span>{getDaysText(daysLeft)}</span>
                     </div>
                   </div>

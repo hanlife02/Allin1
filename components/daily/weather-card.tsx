@@ -103,11 +103,11 @@ export function WeatherCard() {
 
   if (isLoading) {
     return (
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="gap-3 py-4">
+        <CardHeader className="pb-1">
           <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
         </CardHeader>
-        <CardContent className="min-h-[180px] flex items-center justify-center text-sm text-muted-foreground">
+        <CardContent className="min-h-[160px] pt-0 flex items-center justify-center text-sm text-muted-foreground">
           {t.common.loading}
         </CardContent>
       </Card>
@@ -116,11 +116,11 @@ export function WeatherCard() {
 
   if (!weather) {
     return (
-      <Card>
-        <CardHeader className="pb-3">
+      <Card className="gap-3 py-4">
+        <CardHeader className="pb-1">
           <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
         </CardHeader>
-        <CardContent className="min-h-[180px] flex items-center justify-center text-sm text-muted-foreground">
+        <CardContent className="min-h-[160px] pt-0 flex items-center justify-center text-sm text-muted-foreground">
           {t.common.noData}
         </CardContent>
       </Card>
@@ -132,11 +132,11 @@ export function WeatherCard() {
   const conditionText = t.daily.weather[conditionKey] || weather.current.condition
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="gap-3 py-4">
+      <CardHeader className="pb-1">
         <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-3 pt-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ConditionIcon className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />

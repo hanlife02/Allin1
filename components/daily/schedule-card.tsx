@@ -126,6 +126,18 @@ const defaultWeekendVisibility: WeekendVisibilityConfig = {
 const MIN_SCHEDULE_HEIGHT = 280
 const DEFAULT_SCHEDULE_HEIGHT = 420
 const MAX_SCHEDULE_HEIGHT_FALLBACK = 960
+const SLOT_SECTION_BREAKS = [4, 9] as const
+const SLOT_SECTION_GAP_WEIGHT = 0.24
+const SLOT_SECTION_BREAK_SET = new Set<number>(SLOT_SECTION_BREAKS)
+const SLOT_GRID_ROW_COUNT = SLOTS.length + SLOT_SECTION_BREAKS.length
+const SLOT_GRID_TOTAL_UNITS = SLOTS.length + SLOT_SECTION_BREAKS.length * SLOT_SECTION_GAP_WEIGHT
+const SLOT_GRID_TEMPLATE_ROWS = SLOTS.map((_, idx) => {
+  const slot = idx + 1
+  if (SLOT_SECTION_BREAK_SET.has(slot)) {
+    return `minmax(0, 1fr) minmax(0, ${SLOT_SECTION_GAP_WEIGHT}fr)`
+  }
+  return "minmax(0, 1fr)"
+}).join(" ")
 
 // 鈹€鈹€鈹€ Helpers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
@@ -200,6 +212,47 @@ function getCurrentSlotIndex(): number | null {
   return idx === -1 ? null : idx + 1
 }
 
+function getBreakCountBeforeSlot(slot: number): number {
+  let count = 0
+  for (const sectionBreak of SLOT_SECTION_BREAKS) {
+    if (slot > sectionBreak) count += 1
+  }
+  return count
+}
+
+function getBreakCountWithinRange(startSlot: number, endSlot: number): number {
+  let count = 0
+  for (const sectionBreak of SLOT_SECTION_BREAKS) {
+    if (sectionBreak >= startSlot && sectionBreak < endSlot) count += 1
+  }
+  return count
+}
+
+function getGridRowStartFromSlot(slot: number): number {
+  return slot + getBreakCountBeforeSlot(slot)
+}
+
+function getGridRowSpanFromSlotRange(slot: number, span: number): number {
+  if (span <= 1) return 1
+  const endSlot = slot + span - 1
+  return span + getBreakCountWithinRange(slot, endSlot)
+}
+
+function getSlotFromYAxisUnit(yUnits: number): number {
+  let cursor = 0
+  for (let slot = 1; slot <= SLOTS.length; slot += 1) {
+    cursor += 1
+    if (yUnits <= cursor || slot === SLOTS.length) return slot
+
+    if (SLOT_SECTION_BREAK_SET.has(slot)) {
+      const gapEnd = cursor + SLOT_SECTION_GAP_WEIGHT
+      if (yUnits <= gapEnd) return Math.min(slot + 1, SLOTS.length)
+      cursor = gapEnd
+    }
+  }
+  return SLOTS.length
+}
+
 // 鈹€鈹€鈹€ Component 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 export function ScheduleCard() {
@@ -251,7 +304,9 @@ export function ScheduleCard() {
     "allin1_schedule_card_height",
     DEFAULT_SCHEDULE_HEIGHT,
   )
-  const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null)
+  const resizeStateRef = useRef<{ startPageY: number; startHeight: number } | null>(null)
+  const resizePointerClientYRef = useRef<number | null>(null)
+  const resizeAutoScrollRafRef = useRef<number | null>(null)
   const [isResizingSchedule, setIsResizingSchedule] = useState(false)
   const weekOptions = useMemo(
     () => Array.from({ length: totalWeeks }, (_, index) => index + 1),
@@ -288,21 +343,68 @@ export function ScheduleCard() {
     if (!isResizingSchedule) return
 
     const onPointerMove = (event: PointerEvent) => {
+      resizePointerClientYRef.current = event.clientY
       const state = resizeStateRef.current
       if (!state) return
-      const nextHeight = clampScheduleHeight(state.startHeight + (event.clientY - state.startY))
+      const currentPageY = event.clientY + window.scrollY
+      const nextHeight = clampScheduleHeight(state.startHeight + (currentPageY - state.startPageY))
       setScheduleHeight(nextHeight)
     }
 
+    const startAutoScrollLoop = () => {
+      const AUTO_SCROLL_THRESHOLD = 72
+      const AUTO_SCROLL_MIN_STEP = 4
+      const AUTO_SCROLL_MAX_STEP = 22
+
+      const tick = () => {
+        const state = resizeStateRef.current
+        const clientY = resizePointerClientYRef.current
+        if (state && clientY !== null) {
+          let scrollDelta = 0
+
+          if (clientY > window.innerHeight - AUTO_SCROLL_THRESHOLD) {
+            const overflow = clientY - (window.innerHeight - AUTO_SCROLL_THRESHOLD)
+            scrollDelta = Math.min(AUTO_SCROLL_MAX_STEP, Math.max(AUTO_SCROLL_MIN_STEP, overflow * 0.24))
+          } else if (clientY < AUTO_SCROLL_THRESHOLD) {
+            const overflow = AUTO_SCROLL_THRESHOLD - clientY
+            scrollDelta = -Math.min(AUTO_SCROLL_MAX_STEP, Math.max(AUTO_SCROLL_MIN_STEP, overflow * 0.24))
+          }
+
+          if (scrollDelta !== 0) {
+            const prevScrollY = window.scrollY
+            window.scrollBy(0, scrollDelta)
+            const currentPageY = clientY + window.scrollY
+            if (window.scrollY !== prevScrollY) {
+              const nextHeight = clampScheduleHeight(state.startHeight + (currentPageY - state.startPageY))
+              setScheduleHeight(nextHeight)
+            }
+          }
+        }
+        resizeAutoScrollRafRef.current = window.requestAnimationFrame(tick)
+      }
+
+      resizeAutoScrollRafRef.current = window.requestAnimationFrame(tick)
+    }
+
     const stopResizing = () => {
+      if (resizeAutoScrollRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeAutoScrollRafRef.current)
+        resizeAutoScrollRafRef.current = null
+      }
       resizeStateRef.current = null
+      resizePointerClientYRef.current = null
       setIsResizingSchedule(false)
     }
 
+    startAutoScrollLoop()
     window.addEventListener("pointermove", onPointerMove)
     window.addEventListener("pointerup", stopResizing)
     window.addEventListener("pointercancel", stopResizing)
     return () => {
+      if (resizeAutoScrollRafRef.current !== null) {
+        window.cancelAnimationFrame(resizeAutoScrollRafRef.current)
+        resizeAutoScrollRafRef.current = null
+      }
       window.removeEventListener("pointermove", onPointerMove)
       window.removeEventListener("pointerup", stopResizing)
       window.removeEventListener("pointercancel", stopResizing)
@@ -447,8 +549,9 @@ export function ScheduleCard() {
   function handleResizePointerDown(event: React.PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return
     event.preventDefault()
+    resizePointerClientYRef.current = event.clientY
     resizeStateRef.current = {
-      startY: event.clientY,
+      startPageY: event.clientY + window.scrollY,
       startHeight: normalizedScheduleHeight,
     }
     setIsResizingSchedule(true)
@@ -494,7 +597,8 @@ export function ScheduleCard() {
     )
     const weekday = visibleWeekdays[colIndex]
     if (!weekday) return null
-    const slot = Math.min(Math.max(Math.floor((y / rect.height) * SLOTS.length) + 1, 1), SLOTS.length)
+    const yUnits = Math.min(Math.max((y / rect.height) * SLOT_GRID_TOTAL_UNITS, 0), SLOT_GRID_TOTAL_UNITS)
+    const slot = getSlotFromYAxisUnit(yUnits)
     return { weekday, slot }
   }
 
@@ -922,7 +1026,7 @@ export function ScheduleCard() {
             style={{
               height: `${normalizedScheduleHeight}px`,
               gridTemplateColumns: `minmax(0, 1fr) minmax(0, ${visibleDayCount}fr)`,
-              gridTemplateRows: "0.56fr minmax(0, 12fr)",
+              gridTemplateRows: `0.56fr minmax(0, ${SLOT_GRID_TOTAL_UNITS}fr)`,
             }}
           >
             <div />
@@ -962,7 +1066,7 @@ export function ScheduleCard() {
 
             <div
               className="grid"
-              style={{ gridTemplateRows: "repeat(12, minmax(0, 1fr))" }}
+              style={{ gridTemplateRows: SLOT_GRID_TEMPLATE_ROWS }}
             >
               {SLOTS.map((slot, slotIdx) => {
                 const slotIndex = slotIdx + 1
@@ -972,6 +1076,7 @@ export function ScheduleCard() {
                   <div
                     key={`slot-row-${slotIndex}`}
                     className="z-10 flex flex-col items-center justify-center gap-1 px-0.5"
+                    style={{ gridRow: `${getGridRowStartFromSlot(slotIndex)} / span 1` }}
                   >
                     <span
                       className={`font-bold leading-none ${
@@ -997,7 +1102,7 @@ export function ScheduleCard() {
               className="relative grid"
               style={{
                 gridTemplateColumns: `repeat(${visibleDayCount}, minmax(0, 1fr))`,
-                gridTemplateRows: "repeat(12, minmax(0, 1fr))",
+                gridTemplateRows: SLOT_GRID_TEMPLATE_ROWS,
               }}
               onDragOver={handleGridDragOver}
               onDrop={handleGridDrop}
@@ -1007,7 +1112,7 @@ export function ScheduleCard() {
                   className="pointer-events-none z-30 rounded-md bg-primary/15 ring-1 ring-primary/35"
                   style={{
                     gridColumn: weekdayToColumn.get(dragOverCell.weekday) ?? 1,
-                    gridRow: `${dragOverCell.slot} / span ${dragOverCell.span}`,
+                    gridRow: `${getGridRowStartFromSlot(dragOverCell.slot)} / span ${getGridRowSpanFromSlotRange(dragOverCell.slot, dragOverCell.span)}`,
                   }}
                 />
               )}
@@ -1017,7 +1122,7 @@ export function ScheduleCard() {
                   className="pointer-events-none rounded-lg bg-muted/10"
                   style={{
                     gridColumn: visibleTodayColumn,
-                    gridRow: "1 / span 12",
+                    gridRow: `1 / span ${SLOT_GRID_ROW_COUNT}`,
                   }}
                 />
               )}
@@ -1037,7 +1142,7 @@ export function ScheduleCard() {
                     className="z-20 p-0.5"
                     style={{
                       gridColumn: blockColumn,
-                      gridRow: `${block.slot} / span ${block.span}`,
+                      gridRow: `${getGridRowStartFromSlot(block.slot)} / span ${getGridRowSpanFromSlotRange(block.slot, block.span)}`,
                     }}
                   >
                     <div

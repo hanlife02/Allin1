@@ -76,8 +76,8 @@
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: var(--font-geist), "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-mono: var(--font-geist-mono), "JetBrains Mono", "Cascadia Mono", "Consolas", monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -122,6 +122,8 @@
   }
   html {
     font-size: 17px;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
   }
   body {
     @apply bg-background text-foreground;
@@ -134,5 +136,30 @@
       width: calc(100% / var(--ui-scale));
       min-height: calc(100% / var(--ui-scale));
     }
+  }
+}
+
+@layer utilities {
+  .single-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .single-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .single-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .single-scrollbar::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 9999px;
+  }
+
+  .single-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: var(--muted-foreground);
   }
 }

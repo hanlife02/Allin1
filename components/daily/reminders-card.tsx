@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Plus, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,21 @@ const defaultReminders: Reminder[] = [
   { id: "3", content: "回复导师邮件", completed: false, createdAt: "2026-03-01", dueDate: "2026-03-04" },
 ]
 
-type Filter = "all" | "pending" | "completed"
+const extraDefaultReminders: Reminder[] = [
+  { id: "preset-4", content: "Prepare calculus quiz notes", completed: false, createdAt: "2026-03-02", dueDate: "2026-03-07" },
+  { id: "preset-5", content: "Organize weekly course notes", completed: false, createdAt: "2026-03-02", dueDate: "2026-03-06" },
+  { id: "preset-6", content: "Finish mechanics homework ch3", completed: false, createdAt: "2026-03-03", dueDate: "2026-03-08" },
+  { id: "preset-7", content: "Book sports class venue", completed: true, createdAt: "2026-03-01" },
+  { id: "preset-8", content: "Submit quantum reading report", completed: false, createdAt: "2026-03-03", dueDate: "2026-03-10" },
+  { id: "preset-9", content: "Check next-week lab checklist", completed: false, createdAt: "2026-03-03", dueDate: "2026-03-09" },
+  { id: "preset-10", content: "Confirm group presentation roles", completed: false, createdAt: "2026-03-04", dueDate: "2026-03-11" },
+  { id: "preset-11", content: "Print course handouts", completed: true, createdAt: "2026-03-02" },
+  { id: "preset-12", content: "Review unfinished weekly tasks", completed: false, createdAt: "2026-03-04", dueDate: "2026-03-12" },
+]
+
+const seededDefaultReminders: Reminder[] = [...defaultReminders, ...extraDefaultReminders]
+
+type Filter = "pending" | "completed"
 
 function getDaysLeft(dueDate: string): number {
   const now = new Date()
@@ -36,19 +50,40 @@ function getDaysLeft(dueDate: string): number {
   return Math.ceil((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 }
 
+function formatDueDate(dueDate: string): string {
+  const parsed = new Date(dueDate)
+  if (Number.isNaN(parsed.getTime())) return dueDate
+  const y = parsed.getFullYear()
+  const m = String(parsed.getMonth() + 1).padStart(2, "0")
+  const d = String(parsed.getDate()).padStart(2, "0")
+  return `${y}-${m}-${d}`
+}
+
 export function RemindersCard() {
   const { t } = useLocale()
-  const [reminders, setReminders] = useLocalStorage<Reminder[]>("allin1_reminders", defaultReminders)
-  const [filter, setFilter] = useState<Filter>("all")
+  const [reminders, setReminders] = useLocalStorage<Reminder[]>("allin1_reminders", seededDefaultReminders)
+  const [presetSeeded, setPresetSeeded] = useLocalStorage<boolean>("allin1_reminders_seeded_v2", false)
+  const [filter, setFilter] = useState<Filter>("pending")
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newContent, setNewContent] = useState("")
   const [newDueDate, setNewDueDate] = useState("")
   const addReminderDialogId = "daily-reminders-add-dialog"
 
+  useEffect(() => {
+    if (presetSeeded) return
+
+    setReminders((prev) => {
+      const existingIds = new Set(prev.map((item) => item.id))
+      const missingPresets = seededDefaultReminders.filter((item) => !existingIds.has(item.id))
+      if (missingPresets.length === 0) return prev
+      return [...prev, ...missingPresets]
+    })
+    setPresetSeeded(true)
+  }, [presetSeeded, setPresetSeeded, setReminders])
+
   const filtered = reminders.filter((r) => {
     if (filter === "pending") return !r.completed
-    if (filter === "completed") return r.completed
-    return true
+    return r.completed
   })
 
   function toggleReminder(id: string) {
@@ -79,14 +114,13 @@ export function RemindersCard() {
   }
 
   const filterButtons: { key: Filter; label: string }[] = [
-    { key: "all", label: t.daily.reminders.all },
     { key: "pending", label: t.daily.reminders.pending },
     { key: "completed", label: t.daily.reminders.completed },
   ]
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
+    <Card className="gap-3 py-4">
+      <CardHeader className="pb-1">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">{t.daily.reminders.title}</CardTitle>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -132,14 +166,14 @@ export function RemindersCard() {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-2 pt-0">
         <div className="flex gap-1">
           {filterButtons.map((fb) => (
             <Button
               key={fb.key}
               variant={filter === fb.key ? "default" : "ghost"}
               size="sm"
-              className="h-7 px-2.5 text-xs"
+              className="h-6 px-2 text-xs"
               onClick={() => setFilter(fb.key)}
             >
               {fb.label}
@@ -149,7 +183,7 @@ export function RemindersCard() {
         {filtered.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">{t.daily.reminders.noReminders}</p>
         ) : (
-          <div className="space-y-1">
+          <div className="single-scrollbar max-h-80 space-y-1 overflow-y-auto">
             {filtered.map((reminder) => (
               <div
                 key={reminder.id}
@@ -169,6 +203,12 @@ export function RemindersCard() {
                   </span>
                   {reminder.dueDate && !reminder.completed && (() => {
                     const d = getDaysLeft(reminder.dueDate)
+                    const daysText =
+                      d < 0
+                        ? `${t.daily.reminders.overdue} ${Math.abs(d)} ${t.daily.reminders.days}`
+                        : d === 0
+                        ? t.daily.reminders.dueToday
+                        : `${t.daily.reminders.dueIn} ${d} ${t.daily.reminders.days}`
                     return (
                       <span
                         className={`text-xs ${
@@ -179,11 +219,7 @@ export function RemindersCard() {
                             : "text-muted-foreground"
                         }`}
                       >
-                        {d < 0
-                          ? `${t.daily.reminders.overdue} ${Math.abs(d)} ${t.daily.reminders.days}`
-                          : d === 0
-                          ? t.daily.reminders.dueToday
-                          : `${t.daily.reminders.dueIn} ${d} ${t.daily.reminders.days}`}
+                        {formatDueDate(reminder.dueDate)} | {daysText}
                       </span>
                     )
                   })()}

@@ -1,7 +1,7 @@
 ﻿"use client"
 
 import { useState, useMemo, useEffect, useRef } from "react"
-import { MapPin, Plus, Trash2, Settings2, ChevronLeft, ChevronRight } from "lucide-react"
+import { MapPin, Plus, Trash2, Settings2, ChevronLeft, ChevronRight, Download, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -55,6 +55,11 @@ interface VisibleCourse extends Course {
   endSlot: number
 }
 
+interface ScheduleImportConfig {
+  routeCookie: string
+  jsessionId: string
+}
+
 // 鈹€鈹€鈹€ Constants 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 const SLOTS = [
@@ -100,6 +105,11 @@ const defaultCourses: Course[] = [
 const defaultSemester: SemesterConfig = {
   startDate: "2026-02-23",
   totalWeeks: 18,
+}
+
+const defaultScheduleImportConfig: ScheduleImportConfig = {
+  routeCookie: "",
+  jsessionId: "",
 }
 
 // 鈹€鈹€鈹€ Helpers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
@@ -192,7 +202,6 @@ export function ScheduleCard() {
   })
   const [draggingCourseId, setDraggingCourseId] = useState<string | null>(null)
   const [dragOverCell, setDragOverCell] = useState<{ weekday: number; slot: number; span: number } | null>(null)
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null)
   const scheduleGridRef = useRef<HTMLDivElement | null>(null)
 
   // Semester config dialog
@@ -200,6 +209,15 @@ export function ScheduleCard() {
   const [cfgDraft, setCfgDraft] = useState<SemesterConfig>(semester)
   const semesterConfigDialogId = "daily-schedule-semester-config-dialog"
   const addCourseDialogId = "daily-schedule-add-course-dialog"
+  const importDialogId = "daily-schedule-import-dialog"
+  const [importOpen, setImportOpen] = useState(false)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState("")
+  const [importSummary, setImportSummary] = useState("")
+  const [importConfig, setImportConfig] = useLocalStorage<ScheduleImportConfig>(
+    "allin1_schedule_import_config",
+    defaultScheduleImportConfig,
+  )
   const weekOptions = useMemo(
     () => Array.from({ length: totalWeeks }, (_, index) => index + 1),
     [totalWeeks],
@@ -251,6 +269,75 @@ export function ScheduleCard() {
     setCfgDraft(nextConfig)
     setViewWeekNo((prev) => clampWeekNo(prev, totalWeeksDraft))
     setCfgOpen(false)
+  }
+
+  async function importScheduleFromPku() {
+    setImportError("")
+    setImportSummary("")
+    setImporting(true)
+
+    try {
+      const response = await fetch("/api/schedule/import", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          routeCookie: importConfig.routeCookie,
+          jsessionId: importConfig.jsessionId,
+          onlySelected: true,
+        }),
+      })
+
+      const data = (await response.json()) as {
+        error?: string
+        finalUrl?: string
+        responsePreview?: string
+        responseTextPreview?: string
+        courses?: Course[]
+        summary?: {
+          selectedRows: number
+          totalRows: number
+          ignoredLines: number
+          importedCourses: number
+        }
+      }
+
+      if (!response.ok) {
+        const baseError = data.error || "课表导入失败，请检查认证信息。"
+        const stat =
+          data.summary
+            ? `（已识别行 ${data.summary.totalRows}，可用 ${data.summary.selectedRows}，导入 ${data.summary.importedCourses}）`
+            : ""
+        const urlHint = data.finalUrl ? `；返回地址：${data.finalUrl}` : ""
+        const previewHint = data.responsePreview
+          ? `；页面片段：${data.responsePreview.replace(/\s+/g, " ").slice(0, 120)}...`
+          : ""
+        const textHint = data.responseTextPreview
+          ? `；正文片段：${data.responseTextPreview.slice(0, 120)}...`
+          : ""
+        setImportError(`${baseError}${stat}${urlHint}${previewHint}${textHint}`)
+        return
+      }
+
+      const nextCourses = data.courses ?? []
+      if (nextCourses.length === 0) {
+        setImportError("未解析到可导入课程，请确认是否有“已选上”课程和有效教室信息。")
+        return
+      }
+
+      const uniqueCourses = nextCourses.map((course, index) => ({
+        ...course,
+        id: `${course.id || "import"}-${Date.now()}-${index}`,
+      }))
+
+      setCourses(uniqueCourses)
+      setImportSummary(
+        `导入成功：${data.summary?.importedCourses ?? uniqueCourses.length} 条课程（已选 ${data.summary?.selectedRows ?? "-"} / 总行 ${data.summary?.totalRows ?? "-"}）。`,
+      )
+    } catch {
+      setImportError("导入失败：网络请求异常。")
+    } finally {
+      setImporting(false)
+    }
   }
 
   function goToPreviousWeek() {
@@ -332,24 +419,11 @@ export function ScheduleCard() {
     e.dataTransfer.effectAllowed = "move"
     e.dataTransfer.setData("text/plain", courseId)
     setDraggingCourseId(courseId)
-    setSelectedCourseId(null)
   }
 
   function handleCourseDragEnd() {
     setDragOverCell(null)
     setDraggingCourseId(null)
-  }
-
-  function handleCourseClick(courseId: string) {
-    setSelectedCourseId((prev) => (prev === courseId ? null : courseId))
-  }
-
-  function handleGridClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (!selectedCourseId) return
-    const cell = getCellFromClientPoint(e.clientX, e.clientY)
-    if (!cell) return
-    moveCourse(selectedCourseId, cell.weekday, cell.slot)
-    setSelectedCourseId(null)
   }
 
   const visibleCourses = useMemo<VisibleCourse[]>(() => {
@@ -460,6 +534,70 @@ export function ScheduleCard() {
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
+
+            {/* Import from PKU elective portal */}
+            <Dialog open={importOpen} onOpenChange={setImportOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  aria-controls={importDialogId}
+                >
+                  <Download className="h-4 w-4" />
+                  <span className="sr-only">导入课表</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent id={importDialogId} className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>自动导入北大课表</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid gap-2">
+                      <Label>route</Label>
+                      <Input
+                        value={importConfig.routeCookie}
+                        onChange={(e) =>
+                          setImportConfig((prev) => ({ ...prev, routeCookie: e.target.value }))
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>JSESSIONID</Label>
+                      <Input
+                        value={importConfig.jsessionId}
+                        onChange={(e) =>
+                          setImportConfig((prev) => ({ ...prev, jsessionId: e.target.value }))
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  {importError && (
+                    <p className="text-sm text-destructive">{importError}</p>
+                  )}
+                  {importSummary && !importError && (
+                    <p className="text-sm text-muted-foreground">{importSummary}</p>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setImportOpen(false)}>
+                    {t.common.cancel}
+                  </Button>
+                  <Button onClick={importScheduleFromPku} disabled={importing}>
+                    {importing ? (
+                      <>
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                        导入中
+                      </>
+                    ) : (
+                      "自动导入北大课表并保存"
+                    )}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
 
             {/* Semester config */}
             <Dialog open={cfgOpen} onOpenChange={(o) => { setCfgOpen(o); if (o) setCfgDraft(semester) }}>
@@ -723,7 +861,6 @@ export function ScheduleCard() {
               }}
               onDragOver={handleGridDragOver}
               onDrop={handleGridDrop}
-              onClick={handleGridClick}
             >
               {dragOverCell && (
                 <div
@@ -778,10 +915,6 @@ export function ScheduleCard() {
                           draggable
                           onDragStart={(e) => handleCourseDragStart(e, course.id)}
                           onDragEnd={handleCourseDragEnd}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleCourseClick(course.id)
-                          }}
                         >
                           <button
                             className="absolute right-0.5 top-0.5 hidden group-hover:flex h-4 w-4 items-center justify-center rounded opacity-50 hover:opacity-100"
@@ -794,9 +927,7 @@ export function ScheduleCard() {
                             <Trash2 className="h-3 w-3 md:h-3.5 md:w-3.5" />
                           </button>
                           <p
-                            className={`font-semibold leading-tight line-clamp-2 w-full ${
-                              selectedCourseId === course.id ? "underline decoration-dotted underline-offset-2" : ""
-                            }`}
+                            className="font-semibold leading-tight line-clamp-2 w-full"
                             style={{ fontSize: fontScale.courseTitle }}
                           >
                             {course.name}

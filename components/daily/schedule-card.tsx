@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { DatePicker } from "@/components/ui/date-picker"
 import {
   Select,
@@ -58,6 +59,11 @@ interface VisibleCourse extends Course {
 interface ScheduleImportConfig {
   routeCookie: string
   jsessionId: string
+}
+
+interface WeekendVisibilityConfig {
+  showSaturday: boolean
+  showSunday: boolean
 }
 
 // 鈹€鈹€鈹€ Constants 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
@@ -112,6 +118,15 @@ const defaultScheduleImportConfig: ScheduleImportConfig = {
   jsessionId: "",
 }
 
+const defaultWeekendVisibility: WeekendVisibilityConfig = {
+  showSaturday: true,
+  showSunday: true,
+}
+
+const MIN_SCHEDULE_HEIGHT = 280
+const DEFAULT_SCHEDULE_HEIGHT = 420
+const MAX_SCHEDULE_HEIGHT_FALLBACK = 960
+
 // 鈹€鈹€鈹€ Helpers 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 /**
@@ -146,6 +161,16 @@ function getWeekDates(startDateStr: string, weekNo: number): Date[] {
 
 function formatMonthDay(date: Date): string {
   return `${date.getMonth() + 1}.${date.getDate()}`
+}
+
+function getMaxScheduleHeight(): number {
+  if (typeof window === "undefined") return MAX_SCHEDULE_HEIGHT_FALLBACK
+  return Math.max(MIN_SCHEDULE_HEIGHT + 80, Math.min(1100, window.innerHeight - 140))
+}
+
+function clampScheduleHeight(height: number, maxHeight: number = getMaxScheduleHeight()): number {
+  if (!Number.isFinite(height)) return DEFAULT_SCHEDULE_HEIGHT
+  return Math.min(Math.max(Math.round(height), MIN_SCHEDULE_HEIGHT), maxHeight)
 }
 
 function normalizeTotalWeeks(totalWeeks: number): number {
@@ -218,14 +243,85 @@ export function ScheduleCard() {
     "allin1_schedule_import_config",
     defaultScheduleImportConfig,
   )
+  const [weekendVisibility, setWeekendVisibility] = useLocalStorage<WeekendVisibilityConfig>(
+    "allin1_schedule_weekend_visibility",
+    defaultWeekendVisibility,
+  )
+  const [scheduleHeight, setScheduleHeight] = useLocalStorage<number>(
+    "allin1_schedule_card_height",
+    DEFAULT_SCHEDULE_HEIGHT,
+  )
+  const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null)
+  const [isResizingSchedule, setIsResizingSchedule] = useState(false)
   const weekOptions = useMemo(
     () => Array.from({ length: totalWeeks }, (_, index) => index + 1),
     [totalWeeks],
+  )
+  const normalizedScheduleHeight = clampScheduleHeight(scheduleHeight)
+  const showSaturday = weekendVisibility.showSaturday
+  const showSunday = weekendVisibility.showSunday
+  const visibleWeekdays = useMemo(
+    () => [1, 2, 3, 4, 5, ...(showSaturday ? [6] : []), ...(showSunday ? [7] : [])],
+    [showSaturday, showSunday],
+  )
+  const visibleDayCount = visibleWeekdays.length
+  const weekdayToColumn = useMemo(
+    () => new Map(visibleWeekdays.map((weekday, idx) => [weekday, idx + 1] as const)),
+    [visibleWeekdays],
   )
 
   useEffect(() => {
     setViewWeekNo((prev) => clampWeekNo(prev, totalWeeks))
   }, [totalWeeks])
+
+  useEffect(() => {
+    const syncScheduleHeight = () => {
+      setScheduleHeight((prev) => clampScheduleHeight(prev))
+    }
+
+    syncScheduleHeight()
+    window.addEventListener("resize", syncScheduleHeight)
+    return () => window.removeEventListener("resize", syncScheduleHeight)
+  }, [setScheduleHeight])
+
+  useEffect(() => {
+    if (!isResizingSchedule) return
+
+    const onPointerMove = (event: PointerEvent) => {
+      const state = resizeStateRef.current
+      if (!state) return
+      const nextHeight = clampScheduleHeight(state.startHeight + (event.clientY - state.startY))
+      setScheduleHeight(nextHeight)
+    }
+
+    const stopResizing = () => {
+      resizeStateRef.current = null
+      setIsResizingSchedule(false)
+    }
+
+    window.addEventListener("pointermove", onPointerMove)
+    window.addEventListener("pointerup", stopResizing)
+    window.addEventListener("pointercancel", stopResizing)
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("pointerup", stopResizing)
+      window.removeEventListener("pointercancel", stopResizing)
+    }
+  }, [isResizingSchedule, setScheduleHeight])
+
+  useEffect(() => {
+    if (!isResizingSchedule) return
+
+    const previousUserSelect = document.body.style.userSelect
+    const previousCursor = document.body.style.cursor
+    document.body.style.userSelect = "none"
+    document.body.style.cursor = "ns-resize"
+
+    return () => {
+      document.body.style.userSelect = previousUserSelect
+      document.body.style.cursor = previousCursor
+    }
+  }, [isResizingSchedule])
 
   // 鈹€鈹€ Computed week info 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const viewedWeekType: "odd" | "even" = viewWeekNo % 2 === 1 ? "odd" : "even"
@@ -348,6 +444,16 @@ export function ScheduleCard() {
     setViewWeekNo((prev) => Math.min(totalWeeks, prev + 1))
   }
 
+  function handleResizePointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return
+    event.preventDefault()
+    resizeStateRef.current = {
+      startY: event.clientY,
+      startHeight: normalizedScheduleHeight,
+    }
+    setIsResizingSchedule(true)
+  }
+
   function moveCourse(courseId: string, nextWeekday: number, nextSlot: number) {
     setCourses((prev) =>
       prev.map((course) => {
@@ -372,6 +478,7 @@ export function ScheduleCard() {
   function getCellFromClientPoint(clientX: number, clientY: number): { weekday: number; slot: number } | null {
     const gridEl = scheduleGridRef.current
     if (!gridEl) return null
+    if (visibleDayCount <= 0) return null
 
     const rect = gridEl.getBoundingClientRect()
     if (rect.width <= 0 || rect.height <= 0) return null
@@ -381,7 +488,12 @@ export function ScheduleCard() {
 
     const x = clientX - rect.left
     const y = clientY - rect.top
-    const weekday = Math.min(Math.max(Math.floor((x / rect.width) * 7) + 1, 1), 7)
+    const colIndex = Math.min(
+      Math.max(Math.floor((x / rect.width) * visibleDayCount), 0),
+      visibleDayCount - 1,
+    )
+    const weekday = visibleWeekdays[colIndex]
+    if (!weekday) return null
     const slot = Math.min(Math.max(Math.floor((y / rect.height) * SLOTS.length) + 1, 1), SLOTS.length)
     return { weekday, slot }
   }
@@ -428,7 +540,11 @@ export function ScheduleCard() {
 
   const visibleCourses = useMemo<VisibleCourse[]>(() => {
     return courses
-      .filter((c) => c.weekType === "all" || c.weekType === viewedWeekType)
+      .filter(
+        (c) =>
+          (c.weekType === "all" || c.weekType === viewedWeekType) &&
+          visibleWeekdays.includes(c.weekday),
+      )
       .map((c) => {
         const startSlot = Math.min(Math.max(c.slot, 1), SLOTS.length)
         const maxSpan = SLOTS.length - startSlot + 1
@@ -441,7 +557,7 @@ export function ScheduleCard() {
         }
       })
       .sort((a, b) => a.slot - b.slot)
-  }, [courses, viewedWeekType])
+  }, [courses, viewedWeekType, visibleWeekdays])
 
   const coursesByDayAndStartSlot = useMemo(() => {
     const map = new Map<string, VisibleCourse[]>()
@@ -460,6 +576,9 @@ export function ScheduleCard() {
   const today = new Date().getDay()
   const todayWeekday = today === 0 ? 7 : today
   const currentSlotIndex = isViewingCurrentWeek ? getCurrentSlotIndex() : null
+  const visibleTodayColumn = isViewingCurrentWeek
+    ? (weekdayToColumn.get(todayWeekday) ?? null)
+    : null
 
   const weekTypeBadgeLabel: Record<WeekType, string | null> = {
     all: null,
@@ -490,6 +609,8 @@ export function ScheduleCard() {
     courseMeta: "clamp(0.7rem, 0.34rem + 0.5vw, 0.94rem)",
     badge: "clamp(0.64rem, 0.3rem + 0.42vw, 0.82rem)",
   } as const
+  const fontScaleMultiplier = Math.min(Math.max(normalizedScheduleHeight / DEFAULT_SCHEDULE_HEIGHT, 0.88), 1.22)
+  const scaledFontSize = (baseSize: string) => `calc(${baseSize} * ${fontScaleMultiplier})`
 
   // 鈹€鈹€ Render 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   return (
@@ -534,7 +655,6 @@ export function ScheduleCard() {
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
-
             {/* Import from PKU elective portal */}
             <Dialog open={importOpen} onOpenChange={setImportOpen}>
               <DialogTrigger asChild>
@@ -638,6 +758,31 @@ export function ScheduleCard() {
                         setCfgDraft((p) => ({ ...p, totalWeeks: Number(e.target.value) }))
                       }
                     />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>{t.daily.schedule.weekday}</Label>
+                    <div className="grid gap-2">
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <span className="text-sm">{t.daily.schedule.weekdays[5]}</span>
+                        <Switch
+                          checked={showSaturday}
+                          onCheckedChange={(checked) =>
+                            setWeekendVisibility((prev) => ({ ...prev, showSaturday: checked }))
+                          }
+                          aria-label={t.daily.schedule.toggleSaturday}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between rounded-md border px-3 py-2">
+                        <span className="text-sm">{t.daily.schedule.weekdays[6]}</span>
+                        <Switch
+                          checked={showSunday}
+                          onCheckedChange={(checked) =>
+                            setWeekendVisibility((prev) => ({ ...prev, showSunday: checked }))
+                          }
+                          aria-label={t.daily.schedule.toggleSunday}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
@@ -775,25 +920,29 @@ export function ScheduleCard() {
           <div
             className="grid w-full"
             style={{
-              aspectRatio: "8 / 8.5",
-              gridTemplateColumns: "minmax(0, 1fr) minmax(0, 7fr)",
-              gridTemplateRows: "0.62fr minmax(0, 12fr)",
+              height: `${normalizedScheduleHeight}px`,
+              gridTemplateColumns: `minmax(0, 1fr) minmax(0, ${visibleDayCount}fr)`,
+              gridTemplateRows: "0.56fr minmax(0, 12fr)",
             }}
           >
             <div />
 
-            <div className="relative grid grid-cols-7">
-              {isViewingCurrentWeek && (
+            <div
+              className="relative grid"
+              style={{ gridTemplateColumns: `repeat(${visibleDayCount}, minmax(0, 1fr))` }}
+            >
+              {visibleTodayColumn !== null && (
                 <div
                   className="pointer-events-none absolute inset-y-0 rounded-lg bg-muted/10"
                   style={{
-                    left: `${((todayWeekday - 1) / 7) * 100}%`,
-                    width: `${100 / 7}%`,
+                    left: `${((visibleTodayColumn - 1) / visibleDayCount) * 100}%`,
+                    width: `${100 / visibleDayCount}%`,
                   }}
                 />
               )}
-              {t.daily.schedule.weekdays.map((dayLabel, i) => {
-                const weekday = i + 1
+              {visibleWeekdays.map((weekday) => {
+                const i = weekday - 1
+                const dayLabel = t.daily.schedule.weekdays[i]
                 const isToday = isViewingCurrentWeek && weekday === todayWeekday
                 return (
                   <div
@@ -801,7 +950,7 @@ export function ScheduleCard() {
                     className={`z-10 flex flex-col items-center justify-center leading-tight ${
                       isToday ? "text-foreground" : "text-muted-foreground"
                     }`}
-                    style={{ fontSize: fontScale.day }}
+                    style={{ fontSize: scaledFontSize(fontScale.day) }}
                   >
                     <span className="text-[0.82em] font-medium opacity-95">{weekDateLabels[i]}</span>
                     <span className="hidden sm:inline">{dayLabel}</span>
@@ -818,34 +967,25 @@ export function ScheduleCard() {
               {SLOTS.map((slot, slotIdx) => {
                 const slotIndex = slotIdx + 1
                 const isCurrent = isViewingCurrentWeek && isCurrentSlot(slotIndex)
-                const timeParts = slot.time.match(/\d{1,2}:\d{2}/g) ?? []
-                const startTime = timeParts[0] ?? ""
-                const endTime = timeParts[1] ?? ""
 
                 return (
                   <div
                     key={`slot-row-${slotIndex}`}
-                    className="z-10 flex flex-col items-center justify-center gap-0 px-0.5"
+                    className="z-10 flex flex-col items-center justify-center gap-1 px-0.5"
                   >
                     <span
                       className={`font-bold leading-none ${
                         isCurrent ? "text-foreground" : "text-muted-foreground"
                       }`}
-                      style={{ fontSize: fontScale.slotLabel }}
+                      style={{ fontSize: scaledFontSize(fontScale.slotLabel) }}
                     >
                       {slot.label}
                     </span>
                     <span
                       className="leading-tight text-muted-foreground whitespace-nowrap"
-                      style={{ fontSize: fontScale.slotTime }}
+                      style={{ fontSize: scaledFontSize(fontScale.slotTime) }}
                     >
-                      {startTime}
-                    </span>
-                    <span
-                      className="leading-tight text-muted-foreground whitespace-nowrap"
-                      style={{ fontSize: fontScale.slotTime }}
-                    >
-                      {endTime}
+                      {slot.time}
                     </span>
                   </div>
                 )
@@ -856,7 +996,7 @@ export function ScheduleCard() {
               ref={scheduleGridRef}
               className="relative grid"
               style={{
-                gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+                gridTemplateColumns: `repeat(${visibleDayCount}, minmax(0, 1fr))`,
                 gridTemplateRows: "repeat(12, minmax(0, 1fr))",
               }}
               onDragOver={handleGridDragOver}
@@ -866,23 +1006,25 @@ export function ScheduleCard() {
                 <div
                   className="pointer-events-none z-30 rounded-md bg-primary/15 ring-1 ring-primary/35"
                   style={{
-                    gridColumn: dragOverCell.weekday,
+                    gridColumn: weekdayToColumn.get(dragOverCell.weekday) ?? 1,
                     gridRow: `${dragOverCell.slot} / span ${dragOverCell.span}`,
                   }}
                 />
               )}
 
-              {isViewingCurrentWeek && (
+              {visibleTodayColumn !== null && (
                 <div
                   className="pointer-events-none rounded-lg bg-muted/10"
                   style={{
-                    gridColumn: todayWeekday,
+                    gridColumn: visibleTodayColumn,
                     gridRow: "1 / span 12",
                   }}
                 />
               )}
 
               {courseBlocks.map((block) => {
+                const blockColumn = weekdayToColumn.get(block.weekday)
+                if (!blockColumn) return null
                 const isCurrentInBlock =
                   block.weekday === todayWeekday &&
                   currentSlotIndex !== null &&
@@ -894,7 +1036,7 @@ export function ScheduleCard() {
                     key={`course-block-${block.weekday}-${block.slot}`}
                     className="z-20 p-0.5"
                     style={{
-                      gridColumn: block.weekday,
+                      gridColumn: blockColumn,
                       gridRow: `${block.slot} / span ${block.span}`,
                     }}
                   >
@@ -928,14 +1070,14 @@ export function ScheduleCard() {
                           </button>
                           <p
                             className="font-semibold leading-tight line-clamp-2 w-full"
-                            style={{ fontSize: fontScale.courseTitle }}
+                            style={{ fontSize: scaledFontSize(fontScale.courseTitle) }}
                           >
                             {course.name}
                           </p>
                           {course.classroom && (
                             <p
                               className="text-muted-foreground leading-tight truncate flex items-center justify-center gap-0.5 w-full"
-                              style={{ fontSize: fontScale.courseMeta }}
+                              style={{ fontSize: scaledFontSize(fontScale.courseMeta) }}
                             >
                               <MapPin className="h-2.5 w-2.5 md:h-3 md:w-3 shrink-0" />
                               {course.classroom}
@@ -945,7 +1087,7 @@ export function ScheduleCard() {
                             <Badge
                               variant="outline"
                               className="h-auto px-1 py-0.5 border-muted-foreground/30 leading-none"
-                              style={{ fontSize: fontScale.badge }}
+                              style={{ fontSize: scaledFontSize(fontScale.badge) }}
                             >
                               {weekTypeBadgeLabel[course.weekType]}
                             </Badge>
@@ -956,6 +1098,21 @@ export function ScheduleCard() {
                   </div>
                 )
               })}
+            </div>
+          </div>
+          <div className="px-2 pb-2">
+            <div
+              role="separator"
+              aria-label="调整课表高度"
+              aria-orientation="horizontal"
+              className="group flex h-4 cursor-ns-resize touch-none select-none items-center justify-center"
+              onPointerDown={handleResizePointerDown}
+            >
+              <div
+                className={`h-1.5 w-14 rounded-full transition-colors ${
+                  isResizingSchedule ? "bg-primary/60" : "bg-muted group-hover:bg-muted-foreground/35"
+                }`}
+              />
             </div>
           </div>
         </div>

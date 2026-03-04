@@ -1,9 +1,13 @@
 "use client"
 
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { LogOut } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { LocaleToggle } from "@/components/locale-toggle"
+import { Button } from "@/components/ui/button"
 
 interface PageHeaderProps {
   title: string
@@ -11,6 +15,21 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ title, description }: PageHeaderProps) {
+  const router = useRouter()
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  async function handleLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await fetch("/api/auth/logout", { method: "POST" })
+    } finally {
+      router.replace("/login")
+      router.refresh()
+      setLoggingOut(false)
+    }
+  }
+
   return (
     <header className="flex h-12 shrink-0 items-center gap-3 border-b px-4">
       <SidebarTrigger className="-ml-1" />
@@ -24,6 +43,18 @@ export function PageHeader({ title, description }: PageHeaderProps) {
       <div className="ml-auto flex items-center gap-1">
         <LocaleToggle />
         <ThemeToggle />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={handleLogout}
+          disabled={loggingOut}
+          aria-label="logout"
+          title="退出登录"
+        >
+          <LogOut className="h-4 w-4" />
+          <span className="sr-only">退出登录</span>
+        </Button>
       </div>
     </header>
   )

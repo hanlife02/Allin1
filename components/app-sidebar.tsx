@@ -4,6 +4,8 @@ import { usePathname } from "next/navigation"
 import Link from "next/link"
 import { Sun, Wrench, BookOpen, Settings, LayoutDashboard } from "lucide-react"
 import { useLocale } from "@/lib/i18n"
+import { useLocalStorage } from "@/hooks/use-local-storage"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Sidebar,
   SidebarContent,
@@ -15,9 +17,16 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
+interface SidebarUserPrefs {
+  username?: string
+  avatarDataUrl?: string
+}
+
 export function AppSidebar() {
   const pathname = usePathname()
   const { t } = useLocale()
+  const [prefs] = useLocalStorage<SidebarUserPrefs>("allin1_preferences", {})
+  const avatarFallback = (prefs.username || t.sidebar.title).charAt(0).toUpperCase()
 
   const navItems = [
     {
@@ -49,9 +58,12 @@ export function AppSidebar() {
           <SidebarMenuItem>
             <SidebarMenuButton size="lg" asChild tooltip={t.sidebar.title}>
               <Link href="/daily">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-foreground text-background">
-                  <LayoutDashboard className="size-4" />
-                </div>
+                <Avatar className="size-8 rounded-full border border-border/60">
+                  <AvatarImage src={prefs.avatarDataUrl || undefined} alt={prefs.username || t.sidebar.title} className="object-cover" />
+                  <AvatarFallback className="bg-foreground text-background">
+                    {prefs.avatarDataUrl ? avatarFallback : <LayoutDashboard className="size-4" />}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="flex flex-col gap-0.5 leading-none">
                   <span className="font-semibold">{t.sidebar.title}</span>
                   <span className="text-xs text-muted-foreground">Personal Platform</span>

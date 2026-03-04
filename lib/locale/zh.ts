@@ -169,8 +169,11 @@ export const zh = {
       quickSettings: "快捷设置",
     },
     userManagement: {
-      title: "用户管理",
+      title: "用户设置",
       avatar: "头像",
+      uploadAvatar: "上传头像",
+      removeAvatar: "移除头像",
+      avatarUploadError: "头像上传失败，请重新选择图片",
       username: "用户名",
       email: "邮箱",
       preferences: "偏好设置",
@@ -178,6 +181,18 @@ export const zh = {
       defaultLanguage: "默认语言",
       defaultCity: "默认城市",
       save: "保存设置",
+    },
+    notification: {
+      title: "通知设置",
+      barkToken: "Bark 令牌",
+      telegramBotToken: "Telegram Bot Token",
+    },
+    unsaved: {
+      title: "未保存设置",
+      saveBeforeLeave: "有未保存设置，是否保存后离开？",
+      discardBeforeLeave: "放弃未保存设置并离开当前页面？",
+      saveAndLeave: "保存并离开",
+      discardAction: "不保存离开",
     },
     theme: {
       title: "主题",

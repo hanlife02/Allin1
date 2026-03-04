@@ -171,8 +171,11 @@ export const en: LocaleDict = {
       quickSettings: "Quick Settings",
     },
     userManagement: {
-      title: "User Management",
+      title: "User Settings",
       avatar: "Avatar",
+      uploadAvatar: "Upload Avatar",
+      removeAvatar: "Remove Avatar",
+      avatarUploadError: "Avatar upload failed, please choose another image",
       username: "Username",
       email: "Email",
       preferences: "Preferences",
@@ -180,6 +183,18 @@ export const en: LocaleDict = {
       defaultLanguage: "Default Language",
       defaultCity: "Default City",
       save: "Save Settings",
+    },
+    notification: {
+      title: "Notification Settings",
+      barkToken: "Bark Token",
+      telegramBotToken: "Telegram Bot Token",
+    },
+    unsaved: {
+      title: "Unsaved Settings",
+      saveBeforeLeave: "You have unsaved settings. Save before leaving?",
+      discardBeforeLeave: "Discard unsaved changes and leave this page?",
+      saveAndLeave: "Save and Leave",
+      discardAction: "Leave Without Saving",
     },
     theme: {
       title: "Theme",

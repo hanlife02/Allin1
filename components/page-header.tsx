@@ -12,9 +12,10 @@ import { Button } from "@/components/ui/button"
 interface PageHeaderProps {
   title: string
   description?: string
+  actions?: React.ReactNode
 }
 
-export function PageHeader({ title, description }: PageHeaderProps) {
+export function PageHeader({ title, description, actions }: PageHeaderProps) {
   const router = useRouter()
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -41,6 +42,7 @@ export function PageHeader({ title, description }: PageHeaderProps) {
         )}
       </div>
       <div className="ml-auto flex items-center gap-1">
+        {actions}
         <LocaleToggle />
         <ThemeToggle />
         <Button

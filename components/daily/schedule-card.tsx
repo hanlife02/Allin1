@@ -125,7 +125,7 @@ const defaultWeekendVisibility: WeekendVisibilityConfig = {
 
 const MIN_SCHEDULE_HEIGHT = 280
 const DEFAULT_SCHEDULE_HEIGHT = 420
-const MAX_SCHEDULE_HEIGHT_FALLBACK = 960
+const MAX_SCHEDULE_HEIGHT_FALLBACK = 2400
 const SLOT_SECTION_BREAKS = [4, 9] as const
 const SLOT_SECTION_GAP_WEIGHT = 0.24
 const SLOT_SECTION_BREAK_SET = new Set<number>(SLOT_SECTION_BREAKS)
@@ -177,7 +177,8 @@ function formatMonthDay(date: Date): string {
 
 function getMaxScheduleHeight(): number {
   if (typeof window === "undefined") return MAX_SCHEDULE_HEIGHT_FALLBACK
-  return Math.max(MIN_SCHEDULE_HEIGHT + 80, Math.min(1100, window.innerHeight - 140))
+  const viewportScaledMax = Math.round(window.innerHeight * 2.8)
+  return Math.max(MIN_SCHEDULE_HEIGHT + 120, Math.min(MAX_SCHEDULE_HEIGHT_FALLBACK, viewportScaledMax))
 }
 
 function clampScheduleHeight(height: number, maxHeight: number = getMaxScheduleHeight()): number {

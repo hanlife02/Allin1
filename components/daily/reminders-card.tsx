@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Plus, Trash2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -40,7 +40,7 @@ const extraDefaultReminders: Reminder[] = [
 
 const seededDefaultReminders: Reminder[] = [...defaultReminders, ...extraDefaultReminders]
 
-type Filter = "pending" | "completed"
+type Filter = "pending" | "overdue" | "completed"
 
 function getDaysLeft(dueDate: string): number {
   const now = new Date()
@@ -57,6 +57,14 @@ function formatDueDate(dueDate: string): string {
   const m = String(parsed.getMonth() + 1).padStart(2, "0")
   const d = String(parsed.getDate()).padStart(2, "0")
   return `${y}-${m}-${d}`
+}
+
+function getDueDateTimestamp(dueDate?: string): number | null {
+  if (!dueDate) return null
+  const parsed = new Date(dueDate)
+  if (Number.isNaN(parsed.getTime())) return null
+  parsed.setHours(0, 0, 0, 0)
+  return parsed.getTime()
 }
 
 export function RemindersCard() {
@@ -81,10 +89,24 @@ export function RemindersCard() {
     setPresetSeeded(true)
   }, [presetSeeded, setPresetSeeded, setReminders])
 
-  const filtered = reminders.filter((r) => {
-    if (filter === "pending") return !r.completed
-    return r.completed
-  })
+  const filtered = useMemo(() => {
+    const list = reminders.filter((r) => {
+      const overdue = !r.completed && !!r.dueDate && getDaysLeft(r.dueDate) < 0
+      if (filter === "pending") return !r.completed && !overdue
+      if (filter === "overdue") return overdue
+      return r.completed
+    })
+
+    return list.sort((a, b) => {
+      const aDue = getDueDateTimestamp(a.dueDate)
+      const bDue = getDueDateTimestamp(b.dueDate)
+
+      if (aDue !== null && bDue !== null) return aDue - bDue
+      if (aDue !== null) return -1
+      if (bDue !== null) return 1
+      return b.createdAt.localeCompare(a.createdAt)
+    })
+  }, [filter, reminders])
 
   function toggleReminder(id: string) {
     setReminders((prev) =>
@@ -115,6 +137,7 @@ export function RemindersCard() {
 
   const filterButtons: { key: Filter; label: string }[] = [
     { key: "pending", label: t.daily.reminders.pending },
+    { key: "overdue", label: t.daily.reminders.overdueCategory },
     { key: "completed", label: t.daily.reminders.completed },
   ]
 

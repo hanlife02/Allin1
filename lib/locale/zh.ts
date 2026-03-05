@@ -8,6 +8,9 @@ export const zh = {
   },
   daily: {
     title: "日常",
+    dashboard: {
+      title: "仪表盘",
+    },
     weather: {
       title: "天气",
       humidity: "湿度",
@@ -64,6 +67,7 @@ export const zh = {
       noReminders: "暂无提醒事项",
       completed: "已完成",
       pending: "进行中",
+      overdueCategory: "已过期",
       all: "全部",
       content: "提醒内容",
       dueDate: "截止日期",

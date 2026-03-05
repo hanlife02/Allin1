@@ -10,6 +10,9 @@ export const en: LocaleDict = {
   },
   daily: {
     title: "Daily",
+    dashboard: {
+      title: "Dashboard",
+    },
     weather: {
       title: "Weather",
       humidity: "Humidity",
@@ -66,6 +69,7 @@ export const en: LocaleDict = {
       noReminders: "No reminders",
       completed: "Completed",
       pending: "Pending",
+      overdueCategory: "Overdue",
       all: "All",
       content: "Content",
       dueDate: "Due Date",

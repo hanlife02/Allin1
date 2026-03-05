@@ -187,6 +187,18 @@ export const zh = {
       barkToken: "Bark 令牌",
       telegramBotToken: "Telegram Bot Token",
     },
+    api: {
+      title: "API 设置",
+      baseUrl: "Base URL",
+      apiKey: "API Key",
+      requestFormat: "请求格式",
+      formats: {
+        openai: "OpenAI",
+        anthropic: "Anthropic",
+        gemini: "Gemini",
+        custom: "自定义",
+      },
+    },
     unsaved: {
       title: "未保存设置",
       saveBeforeLeave: "有未保存设置，是否保存后离开？",

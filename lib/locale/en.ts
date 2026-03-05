@@ -189,6 +189,18 @@ export const en: LocaleDict = {
       barkToken: "Bark Token",
       telegramBotToken: "Telegram Bot Token",
     },
+    api: {
+      title: "API Settings",
+      baseUrl: "Base URL",
+      apiKey: "API Key",
+      requestFormat: "Request Format",
+      formats: {
+        openai: "OpenAI",
+        anthropic: "Anthropic",
+        gemini: "Gemini",
+        custom: "Custom",
+      },
+    },
     unsaved: {
       title: "Unsaved Settings",
       saveBeforeLeave: "You have unsaved settings. Save before leaving?",

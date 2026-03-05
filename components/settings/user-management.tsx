@@ -7,21 +7,30 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useLocale } from "@/lib/i18n"
 import {
   defaultNotificationSettings,
   type NotificationSettings,
 } from "@/lib/notification-settings"
 
+export type ApiRequestFormat = "openai" | "anthropic" | "gemini" | "custom"
+
 export interface UserPreferences {
   username: string
   email: string
   avatarDataUrl?: string
+  apiBaseUrl?: string
+  apiKey?: string
+  apiRequestFormat?: ApiRequestFormat
 }
 
 export const defaultUserPreferences: UserPreferences = {
   username: "User",
   email: "user@example.com",
+  apiBaseUrl: "",
+  apiKey: "",
+  apiRequestFormat: "openai",
 }
 
 interface UserManagementProps {
@@ -160,6 +169,51 @@ export function UserManagement({
             value={prefs.email}
             onChange={(e) => onPrefsChange((prev) => ({ ...prev, email: e.target.value }))}
           />
+        </div>
+      </div>
+
+      <Separator />
+
+      <div className="space-y-4">
+        <h2 className="text-sm font-medium">{t.settings.api.title}</h2>
+        <div className="grid gap-4">
+          <div className="grid gap-2">
+            <Label>{t.settings.api.baseUrl}</Label>
+            <Input
+              value={prefs.apiBaseUrl ?? ""}
+              onChange={(e) => onPrefsChange((prev) => ({ ...prev, apiBaseUrl: e.target.value }))}
+              placeholder="https://api.openai.com/v1"
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>{t.settings.api.apiKey}</Label>
+            <Input
+              type="password"
+              value={prefs.apiKey ?? ""}
+              onChange={(e) => onPrefsChange((prev) => ({ ...prev, apiKey: e.target.value }))}
+              autoComplete="off"
+              spellCheck={false}
+            />
+          </div>
+          <div className="grid gap-2">
+            <Label>{t.settings.api.requestFormat}</Label>
+            <Select
+              value={prefs.apiRequestFormat || "openai"}
+              onValueChange={(value) =>
+                onPrefsChange((prev) => ({ ...prev, apiRequestFormat: value as ApiRequestFormat }))
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="openai">{t.settings.api.formats.openai}</SelectItem>
+                <SelectItem value="anthropic">{t.settings.api.formats.anthropic}</SelectItem>
+                <SelectItem value="gemini">{t.settings.api.formats.gemini}</SelectItem>
+                <SelectItem value="custom">{t.settings.api.formats.custom}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       </div>
 

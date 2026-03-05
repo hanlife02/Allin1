@@ -7,7 +7,6 @@ import { Wrench, BookOpen, Settings, LayoutDashboard, ChevronRight, Activity, Gr
 import { useLocale } from "@/lib/i18n"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { cn } from "@/lib/utils"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   Sidebar,
@@ -32,8 +31,8 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { t } = useLocale()
   const [prefs] = useLocalStorage<SidebarUserPrefs>("allin1_preferences", {})
-  const [dailyOpen, setDailyOpen] = useState(pathname.startsWith("/daily"))
-  const [toolsOpen, setToolsOpen] = useState(pathname.startsWith("/tools"))
+  const [dailyOpen, setDailyOpen] = useState(false)
+  const [toolsOpen, setToolsOpen] = useState(false)
   const avatarFallback = (prefs.username || t.sidebar.title).charAt(0).toUpperCase()
 
   useEffect(() => {
@@ -87,104 +86,92 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              <Collapsible
-                asChild
-                open={dailyOpen}
-                onOpenChange={setDailyOpen}
-              >
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      isActive={pathname.startsWith("/daily")}
-                      tooltip={t.sidebar.daily}
-                    >
-                      <LayoutDashboard className="size-4" />
-                      <span>{t.sidebar.daily}</span>
-                      <ChevronRight
-                        className={cn(
-                          "ml-auto size-4 transition-transform group-data-[collapsible=icon]:hidden",
-                          dailyOpen && "rotate-90",
-                        )}
-                      />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={pathname.startsWith("/daily/dashboard")}
-                        >
-                          <Link href="/daily/dashboard">
-                            <LayoutDashboard className="size-4" />
-                            <span>{t.daily.dashboard.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={pathname.startsWith("/daily/schedule")}
-                        >
-                          <Link href="/daily/schedule">
-                            <CalendarDays className="size-4" />
-                            <span>{t.daily.schedule.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
-              <Collapsible
-                asChild
-                open={toolsOpen}
-                onOpenChange={setToolsOpen}
-              >
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton
-                      isActive={pathname.startsWith("/tools")}
-                      tooltip={t.sidebar.tools}
-                    >
-                      <Wrench className="size-4" />
-                      <span>{t.sidebar.tools}</span>
-                      <ChevronRight
-                        className={cn(
-                          "ml-auto size-4 transition-transform group-data-[collapsible=icon]:hidden",
-                          toolsOpen && "rotate-90",
-                        )}
-                      />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={pathname.startsWith("/tools/ap-monitor")}
-                        >
-                          <Link href="/tools/ap-monitor">
-                            <Activity className="size-4" />
-                            <span>{t.tools.apMonitor.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton
-                          asChild
-                          isActive={pathname.startsWith("/tools/credit-audit")}
-                        >
-                          <Link href="/tools/credit-audit">
-                            <GraduationCap className="size-4" />
-                            <span>{t.tools.creditAudit.title}</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={pathname.startsWith("/daily")}
+                  tooltip={t.sidebar.daily}
+                  onClick={() => setDailyOpen((prev) => !prev)}
+                  aria-expanded={dailyOpen}
+                >
+                  <LayoutDashboard className="size-4" />
+                  <span>{t.sidebar.daily}</span>
+                  <ChevronRight
+                    className={cn(
+                      "ml-auto size-4 transition-transform group-data-[collapsible=icon]:hidden",
+                      dailyOpen && "rotate-90",
+                    )}
+                  />
+                </SidebarMenuButton>
+                {dailyOpen && (
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={pathname.startsWith("/daily/dashboard")}
+                      >
+                        <Link href="/daily/dashboard">
+                          <LayoutDashboard className="size-4" />
+                          <span>{t.daily.dashboard.title}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={pathname.startsWith("/daily/schedule")}
+                      >
+                        <Link href="/daily/schedule">
+                          <CalendarDays className="size-4" />
+                          <span>{t.daily.schedule.title}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={pathname.startsWith("/tools")}
+                  tooltip={t.sidebar.tools}
+                  onClick={() => setToolsOpen((prev) => !prev)}
+                  aria-expanded={toolsOpen}
+                >
+                  <Wrench className="size-4" />
+                  <span>{t.sidebar.tools}</span>
+                  <ChevronRight
+                    className={cn(
+                      "ml-auto size-4 transition-transform group-data-[collapsible=icon]:hidden",
+                      toolsOpen && "rotate-90",
+                    )}
+                  />
+                </SidebarMenuButton>
+                {toolsOpen && (
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={pathname.startsWith("/tools/ap-monitor")}
+                      >
+                        <Link href="/tools/ap-monitor">
+                          <Activity className="size-4" />
+                          <span>{t.tools.apMonitor.title}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={pathname.startsWith("/tools/credit-audit")}
+                      >
+                        <Link href="/tools/credit-audit">
+                          <GraduationCap className="size-4" />
+                          <span>{t.tools.creditAudit.title}</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
+                )}
+              </SidebarMenuItem>
               {navItems.map((item) => {
                 const isActive = pathname.startsWith(item.href)
                 return (

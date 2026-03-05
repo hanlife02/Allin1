@@ -14,16 +14,18 @@ import {
 import { PageHeader } from "@/components/page-header"
 import {
   UserManagement,
-  defaultNotificationSettings,
   defaultUserPreferences,
-  type NotificationSettings,
   type UserPreferences,
 } from "@/components/settings/user-management"
 import { useLocalStorage } from "@/hooks/use-local-storage"
 import { useLocale } from "@/lib/i18n"
+import {
+  NOTIFICATION_SETTINGS_STORAGE_KEY,
+  defaultNotificationSettings,
+  type NotificationSettings,
+} from "@/lib/notification-settings"
 
 const USER_PREFS_KEY = "allin1_preferences"
-const NOTIFICATION_KEY = "allin1_notification_settings"
 
 function isSameSettings(
   leftPrefs: UserPreferences,
@@ -43,7 +45,7 @@ export default function SettingsPage() {
     defaultUserPreferences,
   )
   const [savedNotifications, setSavedNotifications, notificationsMounted] = useLocalStorage<NotificationSettings>(
-    NOTIFICATION_KEY,
+    NOTIFICATION_SETTINGS_STORAGE_KEY,
     defaultNotificationSettings,
   )
   const [draftPrefs, setDraftPrefs] = useState<UserPreferences>(defaultUserPreferences)

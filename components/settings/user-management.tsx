@@ -8,6 +8,10 @@ import { Label } from "@/components/ui/label"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { useLocale } from "@/lib/i18n"
+import {
+  defaultNotificationSettings,
+  type NotificationSettings,
+} from "@/lib/notification-settings"
 
 export interface UserPreferences {
   username: string
@@ -15,19 +19,9 @@ export interface UserPreferences {
   avatarDataUrl?: string
 }
 
-export interface NotificationSettings {
-  barkToken: string
-  telegramBotToken: string
-}
-
 export const defaultUserPreferences: UserPreferences = {
   username: "User",
   email: "user@example.com",
-}
-
-export const defaultNotificationSettings: NotificationSettings = {
-  barkToken: "",
-  telegramBotToken: "",
 }
 
 interface UserManagementProps {

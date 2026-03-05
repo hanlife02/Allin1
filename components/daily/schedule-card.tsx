@@ -26,6 +26,11 @@ import {
 } from "@/components/ui/select"
 import { useLocale } from "@/lib/i18n"
 import { useLocalStorage } from "@/hooks/use-local-storage"
+import {
+  NOTIFICATION_SETTINGS_STORAGE_KEY,
+  defaultNotificationSettings,
+  type NotificationSettings,
+} from "@/lib/notification-settings"
 
 // 鈹€鈹€鈹€ Types 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
@@ -123,8 +128,13 @@ const defaultWeekendVisibility: WeekendVisibilityConfig = {
   showSunday: true,
 }
 
+const BARK_REMIND_AHEAD_MINUTES = 10
+const BARK_CHECK_INTERVAL_MS = 30000
+const BARK_NOTIFIED_EVENTS_STORAGE_KEY = "allin1_bark_notified_events_v1"
+const BARK_NOTIFIED_RETENTION_MS = 14 * 86400000
+
 const MIN_SCHEDULE_HEIGHT = 280
-const DEFAULT_SCHEDULE_HEIGHT = 420
+const DEFAULT_SCHEDULE_HEIGHT = 960
 const MAX_SCHEDULE_HEIGHT_FALLBACK = 2400
 const SLOT_SECTION_BREAKS = [4, 9] as const
 const SLOT_SECTION_GAP_WEIGHT = 0.24
@@ -173,6 +183,61 @@ function getWeekDates(startDateStr: string, weekNo: number): Date[] {
 
 function formatMonthDay(date: Date): string {
   return `${date.getMonth() + 1}.${date.getDate()}`
+}
+
+function formatDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function formatMinuteText(totalMinutes: number): string {
+  const clamped = Math.min(Math.max(totalMinutes, 0), 24 * 60 - 1)
+  const hours = Math.floor(clamped / 60)
+  const minutes = clamped % 60
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+}
+
+function readBarkNotifiedEventMap(): Record<string, number> {
+  if (typeof window === "undefined") return {}
+  try {
+    const raw = localStorage.getItem(BARK_NOTIFIED_EVENTS_STORAGE_KEY)
+    if (!raw) return {}
+    const parsed = JSON.parse(raw) as Record<string, number>
+    if (!parsed || typeof parsed !== "object") return {}
+    return parsed
+  } catch {
+    return {}
+  }
+}
+
+function writeBarkNotifiedEventMap(eventMap: Record<string, number>) {
+  if (typeof window === "undefined") return
+  localStorage.setItem(BARK_NOTIFIED_EVENTS_STORAGE_KEY, JSON.stringify(eventMap))
+}
+
+function pruneBarkNotifiedEventMap(
+  eventMap: Record<string, number>,
+  nowTimestamp: number,
+): { nextMap: Record<string, number>; changed: boolean } {
+  const minTimestamp = nowTimestamp - BARK_NOTIFIED_RETENTION_MS
+  const nextMap: Record<string, number> = {}
+  let changed = false
+
+  for (const [key, timestamp] of Object.entries(eventMap)) {
+    if (!Number.isFinite(timestamp) || timestamp < minTimestamp) {
+      changed = true
+      continue
+    }
+    nextMap[key] = timestamp
+  }
+
+  if (!changed && Object.keys(nextMap).length !== Object.keys(eventMap).length) {
+    changed = true
+  }
+
+  return { nextMap, changed }
 }
 
 function getMaxScheduleHeight(): number {
@@ -259,10 +324,14 @@ function getSlotFromYAxisUnit(yUnits: number): number {
 export function ScheduleCard() {
   const { t } = useLocale()
 
-  const [courses, setCourses] = useLocalStorage<Course[]>("allin1_schedule_v4", defaultCourses)
-  const [semester, setSemester] = useLocalStorage<SemesterConfig>(
+  const [courses, setCourses, coursesMounted] = useLocalStorage<Course[]>("allin1_schedule_v4", defaultCourses)
+  const [semester, setSemester, semesterMounted] = useLocalStorage<SemesterConfig>(
     "allin1_semester",
     defaultSemester,
+  )
+  const [notifications, , notificationsMounted] = useLocalStorage<NotificationSettings>(
+    NOTIFICATION_SETTINGS_STORAGE_KEY,
+    defaultNotificationSettings,
   )
   const totalWeeks = normalizeTotalWeeks(semester.totalWeeks)
   const { weekNo: currentWeekNoRaw } = getSemesterWeek(semester.startDate)
@@ -425,6 +494,98 @@ export function ScheduleCard() {
       document.body.style.cursor = previousCursor
     }
   }, [isResizingSchedule])
+
+  useEffect(() => {
+    if (!coursesMounted || !semesterMounted || !notificationsMounted) return
+
+    const barkToken = notifications.barkToken.trim()
+    if (!barkToken) return
+
+    const checkAndNotify = async () => {
+      const now = new Date()
+      const semesterWeek = getSemesterWeek(semester.startDate)
+      const semesterTotalWeeks = normalizeTotalWeeks(semester.totalWeeks)
+      if (semesterWeek.weekNo < 1 || semesterWeek.weekNo > semesterTotalWeeks) return
+
+      const todayWeekday = now.getDay() === 0 ? 7 : now.getDay()
+      const nowMinutes = now.getHours() * 60 + now.getMinutes()
+      const todayDateKey = formatDateKey(now)
+      const currentWeekType: WeekType = semesterWeek.isOdd ? "odd" : "even"
+
+      const todayCourses = courses.filter(
+        (course) =>
+          course.weekday === todayWeekday &&
+          (course.weekType === "all" || course.weekType === currentWeekType),
+      )
+      if (todayCourses.length === 0) return
+
+      const loadedMap = readBarkNotifiedEventMap()
+      const pruned = pruneBarkNotifiedEventMap(loadedMap, now.getTime())
+      const notifiedMap = pruned.nextMap
+      let mapChanged = pruned.changed
+
+      for (const course of todayCourses) {
+        const slotRange = SLOT_RANGES[course.slot - 1]
+        if (!slotRange) continue
+        const startMinute = slotRange[0]
+        const remindMinute = startMinute - BARK_REMIND_AHEAD_MINUTES
+        if (nowMinutes < remindMinute || nowMinutes >= startMinute) continue
+
+        const eventKey = `${todayDateKey}|${course.id}|${course.weekday}|${course.slot}|${course.weekType}`
+        if (notifiedMap[eventKey]) continue
+
+        const normalizedSpan = Math.max(1, Math.round(course.span))
+        const endSlot = Math.min(SLOTS.length, course.slot + normalizedSpan - 1)
+        const periodLabel =
+          normalizedSpan > 1 ? `第${course.slot}-${endSlot}节` : `第${course.slot}节`
+        const startTimeText = formatMinuteText(startMinute)
+        const classroomText = course.classroom?.trim() ? `，地点：${course.classroom.trim()}` : ""
+        const title = "上课提醒"
+        const body = `${course.name} ${periodLabel}，${startTimeText} 开始${classroomText}`
+
+        try {
+          const response = await fetch("/api/notifications/bark", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              token: barkToken,
+              title,
+              body,
+              group: "allin1-schedule",
+              url: "/daily",
+            }),
+          })
+          if (response.ok) {
+            notifiedMap[eventKey] = Date.now()
+            mapChanged = true
+          }
+        } catch {
+          // Ignore network errors and retry on next tick.
+        }
+      }
+
+      if (mapChanged) {
+        writeBarkNotifiedEventMap(notifiedMap)
+      }
+    }
+
+    void checkAndNotify()
+    const timer = window.setInterval(() => {
+      void checkAndNotify()
+    }, BARK_CHECK_INTERVAL_MS)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [
+    courses,
+    coursesMounted,
+    notifications.barkToken,
+    notificationsMounted,
+    semester.startDate,
+    semester.totalWeeks,
+    semesterMounted,
+  ])
 
   // 鈹€鈹€ Computed week info 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
   const viewedWeekType: "odd" | "even" = viewWeekNo % 2 === 1 ? "odd" : "even"

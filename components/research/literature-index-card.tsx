@@ -113,7 +113,7 @@ export function LiteratureIndexCard() {
                   <Label>{t.research.literatureIndex.authors}</Label>
                   <Input value={newLit.authors} onChange={(e) => setNewLit((p) => ({ ...p, authors: e.target.value }))} />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="grid gap-2">
                     <Label>{t.research.literatureIndex.year}</Label>
                     <Input

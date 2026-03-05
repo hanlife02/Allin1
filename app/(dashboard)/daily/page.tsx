@@ -12,10 +12,10 @@ export default function DailyPage() {
   return (
     <>
       <PageHeader title={t.daily.title} />
-      <div className="flex-1 p-4 md:p-6">
-        <div className="grid gap-4 md:gap-6">
+      <div className="flex-1 p-4 md:p-5 lg:p-6">
+        <div className="grid gap-4 md:gap-5 lg:gap-6">
           {/* Top row: weather + reminders side by side */}
-          <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+          <div className="grid gap-4 md:grid-cols-2 md:gap-5 lg:gap-6">
             <WeatherCard />
             <RemindersCard />
           </div>

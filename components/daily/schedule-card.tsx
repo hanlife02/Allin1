@@ -855,12 +855,12 @@ export function ScheduleCard() {
   }, [coursesByDayAndStartSlot])
 
   const fontScale = {
-    day: "clamp(0.82rem, 0.4rem + 0.65vw, 1.08rem)",
-    slotLabel: "clamp(0.8rem, 0.36rem + 0.62vw, 1.12rem)",
-    slotTime: "clamp(0.68rem, 0.32rem + 0.52vw, 0.92rem)",
-    courseTitle: "clamp(0.76rem, 0.38rem + 0.58vw, 1.06rem)",
-    courseMeta: "clamp(0.7rem, 0.34rem + 0.5vw, 0.94rem)",
-    badge: "clamp(0.64rem, 0.3rem + 0.42vw, 0.82rem)",
+    day: "0.95rem",
+    slotLabel: "0.96rem",
+    slotTime: "0.8rem",
+    courseTitle: "0.92rem",
+    courseMeta: "0.82rem",
+    badge: "0.72rem",
   } as const
   const fontScaleMultiplier = Math.min(Math.max(normalizedScheduleHeight / DEFAULT_SCHEDULE_HEIGHT, 0.88), 1.22)
   const scaledFontSize = (baseSize: string) => `calc(${baseSize} * ${fontScaleMultiplier})`
@@ -887,7 +887,7 @@ export function ScheduleCard() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <Select value={String(viewWeekNo)} onValueChange={(value) => setViewWeekNo(Number(value))}>
-              <SelectTrigger className="h-8 w-[108px] px-2 text-sm">
+              <SelectTrigger className="h-8 w-[6.75rem] px-2 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -921,7 +921,7 @@ export function ScheduleCard() {
                   <span className="sr-only">导入课表</span>
                 </Button>
               </DialogTrigger>
-              <DialogContent id={importDialogId} className="max-w-2xl">
+              <DialogContent id={importDialogId} className="max-w-3xl">
                 <DialogHeader>
                   <DialogTitle>自动导入北大课表</DialogTitle>
                 </DialogHeader>
@@ -1079,7 +1079,7 @@ export function ScheduleCard() {
                       onChange={(e) => setNewCourse((p) => ({ ...p, classroom: e.target.value }))}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="grid gap-2">
                       <Label>{t.daily.schedule.startSlot}</Label>
                       <Select
@@ -1117,7 +1117,7 @@ export function ScheduleCard() {
                       </Select>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="grid gap-2">
                       <Label>{t.daily.schedule.weekday}</Label>
                       <Select

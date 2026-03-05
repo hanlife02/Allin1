@@ -51,8 +51,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6">
-      <Card className="w-full max-w-sm">
+    <main className="flex min-h-screen items-center justify-center p-4 sm:p-6 lg:p-8">
+      <Card className="w-full max-w-[24rem]">
         <CardHeader>
           <CardTitle>登录</CardTitle>
         </CardHeader>

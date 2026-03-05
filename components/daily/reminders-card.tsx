@@ -119,7 +119,7 @@ export function RemindersCard() {
   ]
 
   return (
-    <Card className="max-h-[22rem] gap-3 py-4">
+    <Card className="min-h-[16rem] max-h-[24rem] gap-3 py-4 md:min-h-[18rem] md:max-h-[26rem] lg:min-h-[20rem] lg:max-h-[30rem]">
       <CardHeader className="pb-1">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium">{t.daily.reminders.title}</CardTitle>
@@ -166,7 +166,7 @@ export function RemindersCard() {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent className="flex min-h-[12rem] flex-col space-y-2 pt-0">
+      <CardContent className="flex min-h-0 flex-1 flex-col space-y-2 pt-0">
         <div className="flex gap-1">
           {filterButtons.map((fb) => (
             <Button
@@ -181,11 +181,11 @@ export function RemindersCard() {
           ))}
         </div>
         {filtered.length === 0 ? (
-          <p className="flex min-h-[10rem] items-center justify-center py-6 text-center text-sm text-muted-foreground">
+          <p className="flex min-h-0 flex-1 items-center justify-center py-6 text-center text-sm text-muted-foreground">
             {t.daily.reminders.noReminders}
           </p>
         ) : (
-          <div className="single-scrollbar max-h-48 space-y-1 overflow-y-auto pr-1">
+          <div className="single-scrollbar min-h-0 flex-1 space-y-1 overflow-y-auto pr-1">
             {filtered.map((reminder) => (
               <div
                 key={reminder.id}

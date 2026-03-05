@@ -103,11 +103,11 @@ export function WeatherCard() {
 
   if (isLoading) {
     return (
-      <Card className="max-h-[22rem] gap-3 py-4">
+      <Card className="min-h-[16rem] max-h-[24rem] gap-3 py-4 md:min-h-[18rem] md:max-h-[26rem] lg:min-h-[20rem] lg:max-h-[30rem]">
         <CardHeader className="pb-1">
           <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
         </CardHeader>
-        <CardContent className="min-h-[160px] pt-0 flex items-center justify-center text-sm text-muted-foreground">
+        <CardContent className="flex min-h-0 flex-1 items-center justify-center pt-0 text-sm text-muted-foreground">
           {t.common.loading}
         </CardContent>
       </Card>
@@ -116,11 +116,11 @@ export function WeatherCard() {
 
   if (!weather) {
     return (
-      <Card className="max-h-[22rem] gap-3 py-4">
+      <Card className="min-h-[16rem] max-h-[24rem] gap-3 py-4 md:min-h-[18rem] md:max-h-[26rem] lg:min-h-[20rem] lg:max-h-[30rem]">
         <CardHeader className="pb-1">
           <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
         </CardHeader>
-        <CardContent className="min-h-[160px] pt-0 flex items-center justify-center text-sm text-muted-foreground">
+        <CardContent className="flex min-h-0 flex-1 items-center justify-center pt-0 text-sm text-muted-foreground">
           {t.common.noData}
         </CardContent>
       </Card>
@@ -132,11 +132,11 @@ export function WeatherCard() {
   const conditionText = t.daily.weather[conditionKey] || weather.current.condition
 
   return (
-    <Card className="max-h-[22rem] gap-3 py-4">
+    <Card className="min-h-[16rem] max-h-[24rem] gap-3 py-4 md:min-h-[18rem] md:max-h-[26rem] lg:min-h-[20rem] lg:max-h-[30rem]">
       <CardHeader className="pb-1">
         <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
       </CardHeader>
-      <CardContent className="single-scrollbar max-h-[16.5rem] space-y-3 overflow-y-auto pt-0 pr-1">
+      <CardContent className="single-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto pt-0 pr-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ConditionIcon className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />

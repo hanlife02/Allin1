@@ -4,7 +4,6 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --ui-scale: clamp(1.2, 1.05 + 0.5vw, 1.32);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -121,21 +120,12 @@
     @apply border-border outline-ring/50;
   }
   html {
-    font-size: 17px;
+    font-size: 100%;
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
   }
   body {
     @apply bg-background text-foreground;
-    zoom: var(--ui-scale);
-  }
-  @supports not (zoom: 1) {
-    body {
-      transform: scale(var(--ui-scale));
-      transform-origin: top left;
-      width: calc(100% / var(--ui-scale));
-      min-height: calc(100% / var(--ui-scale));
-    }
   }
 }
 

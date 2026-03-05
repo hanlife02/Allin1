@@ -12,8 +12,8 @@ export default function ResearchPage() {
   return (
     <>
       <PageHeader title={t.research.title} />
-      <div className="flex-1 p-4 md:p-6">
-        <div className="grid gap-4 md:grid-cols-2 md:gap-6">
+      <div className="flex-1 p-4 md:p-5 lg:p-6">
+        <div className="grid gap-4 md:grid-cols-2 md:gap-5 lg:gap-6">
           <div className="md:col-span-2">
             <LiteratureIndexCard />
           </div>

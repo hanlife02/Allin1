@@ -37,7 +37,7 @@ export function DashboardOverview() {
   return (
     <section className="space-y-3">
       <h2 className="text-sm font-medium">{t.settings.dashboard.title}</h2>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
           <div key={stat.label} className="flex items-center gap-3 rounded-md border p-3">
             <stat.icon className="h-4 w-4 text-muted-foreground" />

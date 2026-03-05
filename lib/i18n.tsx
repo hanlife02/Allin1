@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react"
 import { zh, type LocaleDict } from "@/lib/locale/zh"
 import { en } from "@/lib/locale/en"
+import { useLocalStorage } from "@/hooks/use-local-storage"
 
 export type Locale = "zh" | "en"
 
@@ -18,28 +19,22 @@ const I18nContext = createContext<I18nContextType | undefined>(undefined)
 
 const STORAGE_KEY = "allin1_locale"
 
-function getInitialLocale(): Locale {
+function getBrowserPreferredLocale(): Locale {
   if (typeof window === "undefined") return "zh"
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === "zh" || stored === "en") return stored
   const browserLang = navigator.language
   return browserLang.startsWith("zh") ? "zh" : "en"
 }
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("zh")
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setLocaleState(getInitialLocale())
-    setMounted(true)
-  }, [])
+  const [locale, setLocaleState, mounted] = useLocalStorage<Locale>(STORAGE_KEY, getBrowserPreferredLocale())
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale)
-    localStorage.setItem(STORAGE_KEY, newLocale)
-    document.documentElement.lang = newLocale === "zh" ? "zh-CN" : "en"
   }, [])
+
+  useEffect(() => {
+    document.documentElement.lang = locale === "zh" ? "zh-CN" : "en"
+  }, [locale])
 
   const t = dictionaries[locale]
 

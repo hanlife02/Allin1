@@ -52,7 +52,7 @@ const defaultTargets: MonitorTarget[] = [
   },
 ]
 
-const MONITOR_STORAGE_KEY = "allin1_api_monitors_v1"
+const MONITOR_STORAGE_KEY = "allin1_monitors"
 
 function normalizeRequestFormat(value: string | undefined): ApiRequestFormat {
   if (value === "openai" || value === "anthropic" || value === "gemini" || value === "custom") {

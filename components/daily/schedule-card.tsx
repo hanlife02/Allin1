@@ -199,24 +199,6 @@ function formatMinuteText(totalMinutes: number): string {
   return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
 }
 
-function readBarkNotifiedEventMap(): Record<string, number> {
-  if (typeof window === "undefined") return {}
-  try {
-    const raw = localStorage.getItem(BARK_NOTIFIED_EVENTS_STORAGE_KEY)
-    if (!raw) return {}
-    const parsed = JSON.parse(raw) as Record<string, number>
-    if (!parsed || typeof parsed !== "object") return {}
-    return parsed
-  } catch {
-    return {}
-  }
-}
-
-function writeBarkNotifiedEventMap(eventMap: Record<string, number>) {
-  if (typeof window === "undefined") return
-  localStorage.setItem(BARK_NOTIFIED_EVENTS_STORAGE_KEY, JSON.stringify(eventMap))
-}
-
 function pruneBarkNotifiedEventMap(
   eventMap: Record<string, number>,
   nowTimestamp: number,
@@ -374,6 +356,10 @@ export function ScheduleCard() {
     "allin1_schedule_card_height",
     DEFAULT_SCHEDULE_HEIGHT,
   )
+  const [barkNotifiedEvents, setBarkNotifiedEvents] = useLocalStorage<Record<string, number>>(
+    BARK_NOTIFIED_EVENTS_STORAGE_KEY,
+    {},
+  )
   const resizeStateRef = useRef<{ startPageY: number; startHeight: number } | null>(null)
   const resizePointerClientYRef = useRef<number | null>(null)
   const resizeAutoScrollRafRef = useRef<number | null>(null)
@@ -519,8 +505,7 @@ export function ScheduleCard() {
       )
       if (todayCourses.length === 0) return
 
-      const loadedMap = readBarkNotifiedEventMap()
-      const pruned = pruneBarkNotifiedEventMap(loadedMap, now.getTime())
+      const pruned = pruneBarkNotifiedEventMap(barkNotifiedEvents, now.getTime())
       const notifiedMap = pruned.nextMap
       let mapChanged = pruned.changed
 
@@ -565,7 +550,7 @@ export function ScheduleCard() {
       }
 
       if (mapChanged) {
-        writeBarkNotifiedEventMap(notifiedMap)
+        setBarkNotifiedEvents(notifiedMap)
       }
     }
 
@@ -580,11 +565,13 @@ export function ScheduleCard() {
   }, [
     courses,
     coursesMounted,
+    barkNotifiedEvents,
     notifications.barkToken,
     notificationsMounted,
     semester.startDate,
     semester.totalWeeks,
     semesterMounted,
+    setBarkNotifiedEvents,
   ])
 
   // 鈹€鈹€ Computed week info 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€

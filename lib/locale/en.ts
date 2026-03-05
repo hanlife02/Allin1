@@ -107,10 +107,14 @@ export const en: LocaleDict = {
       notFulfilled: "Not Fulfilled",
     },
     apMonitor: {
-      title: "AP Monitor",
+      title: "API Monitor",
       addTarget: "Add Target",
       name: "Name",
       url: "URL",
+      channel: "Channel",
+      baseUrl: "Base URL",
+      apiKey: "API Key",
+      requestFormat: "Request Format",
       status: "Status",
       online: "Online",
       offline: "Offline",
@@ -119,6 +123,13 @@ export const en: LocaleDict = {
       responseTime: "Response Time",
       noTargets: "No monitor targets",
       checking: "Checking",
+      notSet: "Not set",
+      formats: {
+        openai: "OpenAI",
+        anthropic: "Anthropic",
+        gemini: "Gemini",
+        custom: "Custom",
+      },
     },
   },
   research: {
@@ -188,18 +199,6 @@ export const en: LocaleDict = {
       title: "Notification Settings",
       barkToken: "Bark Token",
       telegramBotToken: "Telegram Bot Token",
-    },
-    api: {
-      title: "API Settings",
-      baseUrl: "Base URL",
-      apiKey: "API Key",
-      requestFormat: "Request Format",
-      formats: {
-        openai: "OpenAI",
-        anthropic: "Anthropic",
-        gemini: "Gemini",
-        custom: "Custom",
-      },
     },
     unsaved: {
       title: "Unsaved Settings",

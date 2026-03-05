@@ -105,10 +105,14 @@ export const zh = {
       notFulfilled: "未满足",
     },
     apMonitor: {
-      title: "AP 可用性监控",
+      title: "API 可用性监控",
       addTarget: "添加监控",
       name: "名称",
       url: "URL 地址",
+      channel: "API 渠道",
+      baseUrl: "Base URL",
+      apiKey: "API Key",
+      requestFormat: "请求格式",
       status: "状态",
       online: "在线",
       offline: "离线",
@@ -117,6 +121,13 @@ export const zh = {
       responseTime: "响应时间",
       noTargets: "暂无监控目标",
       checking: "检查中",
+      notSet: "未设置",
+      formats: {
+        openai: "OpenAI",
+        anthropic: "Anthropic",
+        gemini: "Gemini",
+        custom: "自定义",
+      },
     },
   },
   research: {
@@ -186,18 +197,6 @@ export const zh = {
       title: "通知设置",
       barkToken: "Bark 令牌",
       telegramBotToken: "Telegram Bot Token",
-    },
-    api: {
-      title: "API 设置",
-      baseUrl: "Base URL",
-      apiKey: "API Key",
-      requestFormat: "请求格式",
-      formats: {
-        openai: "OpenAI",
-        anthropic: "Anthropic",
-        gemini: "Gemini",
-        custom: "自定义",
-      },
     },
     unsaved: {
       title: "未保存设置",

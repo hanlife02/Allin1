@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import { useEffect, useMemo, useState } from "react"
 import { Cloud, CloudRain, Droplets, Sun, Thermometer, Wind } from "lucide-react"
@@ -103,7 +103,7 @@ export function WeatherCard() {
 
   if (isLoading) {
     return (
-      <Card className="gap-3 py-4">
+      <Card className="max-h-[22rem] gap-3 py-4">
         <CardHeader className="pb-1">
           <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
         </CardHeader>
@@ -116,7 +116,7 @@ export function WeatherCard() {
 
   if (!weather) {
     return (
-      <Card className="gap-3 py-4">
+      <Card className="max-h-[22rem] gap-3 py-4">
         <CardHeader className="pb-1">
           <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
         </CardHeader>
@@ -132,11 +132,11 @@ export function WeatherCard() {
   const conditionText = t.daily.weather[conditionKey] || weather.current.condition
 
   return (
-    <Card className="gap-3 py-4">
+    <Card className="max-h-[22rem] gap-3 py-4">
       <CardHeader className="pb-1">
         <CardTitle className="text-sm font-medium">{t.daily.weather.title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-3 pt-0">
+      <CardContent className="single-scrollbar max-h-[16.5rem] space-y-3 overflow-y-auto pt-0 pr-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <ConditionIcon className="h-10 w-10 text-muted-foreground" strokeWidth={1.5} />

@@ -1,22 +1,5 @@
-"use client"
-
-import { PageHeader } from "@/components/page-header"
-import { CreditAuditCard } from "@/components/tools/credit-audit-card"
-import { ApiMonitorCard } from "@/components/tools/ap-monitor-card"
-import { useLocale } from "@/lib/i18n"
+﻿import { redirect } from "next/navigation"
 
 export default function ToolsPage() {
-  const { t } = useLocale()
-
-  return (
-    <>
-      <PageHeader title={t.tools.title} />
-      <div className="flex-1 p-4 md:p-5 lg:p-6">
-        <div className="grid gap-4 md:grid-cols-2 md:gap-5 lg:gap-6">
-          <CreditAuditCard />
-          <ApiMonitorCard />
-        </div>
-      </div>
-    </>
-  )
+  redirect("/tools/ap-monitor")
 }

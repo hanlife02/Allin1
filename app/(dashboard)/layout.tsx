@@ -3,6 +3,7 @@
 import { useRef, useCallback } from "react"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
+import { useLocale } from "@/lib/i18n"
 
 const MIN_WIDTH_REM = 14
 const MAX_WIDTH_REM = 24
@@ -21,8 +22,13 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
+  const { locale } = useLocale()
   const providerRef = useRef<HTMLDivElement>(null)
   const widthRef = useRef(DEFAULT_WIDTH_REM)
+  const currentYear = new Date().getFullYear()
+  const footerText = locale === "zh"
+    ? `Allin1 个人平台 · © ${currentYear} · 保留所有权利`
+    : `Allin1 Personal Platform · © ${currentYear} · All rights reserved`
 
   const startDrag = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault()
@@ -73,6 +79,9 @@ export default function DashboardLayout({
 
       <SidebarInset>
         {children}
+        <footer className="border-t border-border/60 px-4 py-3 text-xs text-muted-foreground md:px-6">
+          {footerText}
+        </footer>
       </SidebarInset>
     </SidebarProvider>
   )
